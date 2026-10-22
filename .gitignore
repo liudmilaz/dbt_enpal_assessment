@@ -1,0 +1,11 @@
+# dbt
+target/
+dbt_packages/
+logs/
+# python
+.venv/
+__pycache__/
+# editor, local agent config, OS
+.vscode/
+.claude/
+.DS_Store
