@@ -9,7 +9,7 @@ Enpal Senior Analytics Engineer take-home. Build dbt models on Postgres (Docker)
 ## Status
 
 - Environment works: Docker Postgres loaded once, dbt venv, `dbt run` passed on the test model.
-- Exploration is done: `analyses/00` to `12`, dbt test probes (44 tests, 7 fail, each a finding). See `docs/findings.md`.
+- Exploration is done: `analyses/00` to `05`, dbt test probes (44 tests, 7 fail, each a finding). See `docs/findings.md`.
 - No models are written yet. **The owner is writing the dbt models herself, for training. Do not write models; explain, review and answer questions.**
 - `docs/model_plan.md` has the intended layers, grains and metric definitions.
 

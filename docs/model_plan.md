@@ -49,6 +49,8 @@ Distinct deals per stage over all months: step 1 = 1,995 (both rules). Recorded:
 
 ## Tests to put in the models (see `docs/findings.md` for severities)
 
+Start from the key register in `docs/findings.md` (analysis 01): every primary key gets `unique` + `not_null`, every foreign key that holds gets `relationships`, and every column is `not_null` except `fields.field_value_options` (analysis 01).
+
 - Staging: keys `unique`/`not_null`, `accepted_values` (event key, stage ids 1 to 9), `relationships` (stage and owner ids, assignee, activity type), the full-grain `unique_combination_of_columns` on `deal_changes` (catches a double load), email uniqueness at warn.
 - Intermediate: `unique` on `deal_id` and on (`deal_id`, `stage_id`); first stage is 1; no stage event before creation.
 - Marts: `unique_combination_of_columns [month, funnel_step]`, `deals_count >= 0`, `relationships` of `funnel_step` to `dim_funnel_step`, singular reconciliations: step 1 total equals distinct deals; monthly sums equal the totals above; with `calls_done_only` off the call totals rise.
