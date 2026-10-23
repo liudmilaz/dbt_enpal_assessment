@@ -5,7 +5,6 @@
 --   - primary key: id, declared by the task; field_key is also unique and is what deal_changes references
 --   - foreign keys: none; all 4 field keys are used by deal_changes
 --   - nulls: field_value_options is null for user_id and add_time (no option list: expected)
--- Run one statement at a time (cursor in the statement, Cmd+E, Cmd+E in SQLTools).
 
 -- =====================================================================
 -- 1. Rows and columns
@@ -36,7 +35,7 @@ where n_dup_id > 1
 -- =====================================================================
 -- 3. Foreign keys
 -- =====================================================================
--- None: a dictionary points at nothing. Referenced by deal_changes.changed_field_key (see 01_deal_changes, section 3).
+-- None: a dictionary points at nothing. Referenced by deal_changes.changed_field_key.
 
 -- =====================================================================
 -- 4. Nulls per column

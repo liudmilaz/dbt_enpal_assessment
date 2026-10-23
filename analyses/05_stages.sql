@@ -6,7 +6,6 @@
 --   - foreign keys: none; all 9 stages are used by the stage events
 --   - nulls: none
 --   - descriptive: stage 2 is spelled "Qualified lead" here and "Qualified Lead" in fields (text comparison is case sensitive)
--- Run one statement at a time (cursor in the statement, Cmd+E, Cmd+E in SQLTools).
 
 -- =====================================================================
 -- 1. Rows and columns
@@ -36,7 +35,7 @@ where n_dup > 1;
 -- =====================================================================
 -- 3. Foreign keys
 -- =====================================================================
--- None: a dictionary points at nothing. Referenced by the stage events in deal_changes (see 01_deal_changes, section 3).
+-- None: a dictionary points at nothing. Referenced by the stage events in deal_changes.
 
 -- =====================================================================
 -- 4. Nulls per column
