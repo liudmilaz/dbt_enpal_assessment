@@ -2,7 +2,7 @@ import sys, json, uuid, re, pathlib
 sys.path.insert(0, ".")
 import ldbuild, ldapi
 P = ldbuild.P; SPACE = ldbuild.SPACE
-REPO = pathlib.Path("/Users/liudmila/Library/CloudStorage/GoogleDrive-sogrinalv@gmail.com/My Drive/career/code/dbt_enpal_assessment")
+REPO = pathlib.Path(__file__).resolve().parent.parent  # repo root, wherever it is cloned
 
 def nulls(t):
     return f"""select key as col, count(*) as n_rows, count(*) - count(*) filter (where value = 'null'::jsonb) as n_not_null,
@@ -34,7 +34,7 @@ def fk_block(path):  # take the inner union of a per-table file
 GAPS = "select extract(epoch from change_time - lag(change_time) over (partition by deal_id order by change_time)) / 86400 as x from public.deal_changes where changed_field_key = 'stage_id'"
 LAGS = "select extract(epoch from s.ts - a.ts) / 86400 as x from (select deal_id, min(change_time) as ts from public.deal_changes where changed_field_key = 'add_time' group by 1) a join (select deal_id, min(change_time) as ts from public.deal_changes where changed_field_key = 'stage_id' and new_value = '1' group by 1) s using (deal_id)"
 
-FIND_SQL = (REPO/"analyses/07_data_quality_findings.sql").read_text()
+FIND_SQL = (REPO/"vault/project/sql/07_data_quality_findings.sql").read_text()  # moved with the documentation PR
 FIND_SQL = FIND_SQL[FIND_SQL.index("select row_number()"):].rstrip().rstrip(";")
 FIND_SQL = re.sub(r"(?m)^\s*--[^\n]*$", "", FIND_SQL)
 
