@@ -1,6 +1,6 @@
 -- TABLE public.stages    CLASS: dictionary    GRAIN: one pipeline stage
--- Business meaning: the nine steps of the sales pipeline; stage_id order is the funnel order. See docs/business_context.md;
--- field definitions and Pipedrive links in docs/data_dictionary.md.
+-- Business meaning: the nine steps of the sales pipeline; stage_id order is the funnel order. See vault/project/business_context.md;
+-- field definitions and Pipedrive links in vault/project/data_dictionary.md.
 -- Findings in short:
 --   - primary key: stage_id, declared by the task
 --   - foreign keys: none; all 9 stages are used by the stage events

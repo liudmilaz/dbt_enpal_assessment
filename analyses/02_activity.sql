@@ -1,6 +1,6 @@
 -- TABLE public.activity    CLASS: fact    GRAIN: one planned activity (call or meeting)
 -- Business meaning: calls and meetings planned for a user and a deal; Sales Call 1 and 2 are funnel steps 2.1 and 3.1.
--- See docs/business_context.md; field definitions and Pipedrive links in docs/data_dictionary.md.
+-- See vault/project/business_context.md; field definitions and Pipedrive links in vault/project/data_dictionary.md.
 -- Findings in short:
 --   - primary key: none declared; activity_id repeats (11 ids, 2 rows each); the full row has no duplicates, so the model needs a surrogate key
 --   - foreign keys: assigned user and type match (0 orphans); deal_id does not match the deals in deal_changes (4,571 of 4,579 rows orphaned)
@@ -141,4 +141,4 @@ order by 1 desc;
 -- =====================================================================
 -- 6. Descriptive analytics
 -- =====================================================================
--- Covered by section 5 (types, done, users, months) and by 08_business_questions.sql, B4 (calls against the deals' stages).
+-- Covered by section 5 (types, done, users, months) and by vault/project/sql/08_business_questions.sql, B4 (calls against the deals' stages).

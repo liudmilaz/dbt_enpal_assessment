@@ -1,6 +1,6 @@
 -- TABLE public.users    CLASS: dictionary (master data)    GRAIN: one user, current state only
--- Business meaning: the sales staff who own deals and activities. See docs/business_context.md;
--- field definitions and Pipedrive links in docs/data_dictionary.md.
+-- Business meaning: the sales staff who own deals and activities. See vault/project/business_context.md;
+-- field definitions and Pipedrive links in vault/project/data_dictionary.md.
 -- Findings in short:
 --   - primary key: id, declared by the task; email is not a key (4 emails shared by 2 users each)
 --   - foreign keys: none; 1,757 of 1,787 users are referenced by an activity or an owner event
@@ -50,7 +50,7 @@ from public.users;
 -- =====================================================================
 -- 5. Outliers
 -- =====================================================================
--- Not applicable: a dictionary. The date range of modified is in 09_review_later.sql (R4).
+-- Not applicable: a dictionary. The date range of modified is in vault/project/sql/09_review_later.sql (R4).
 
 -- =====================================================================
 -- 6. Descriptive analytics

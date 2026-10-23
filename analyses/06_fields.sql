@@ -1,6 +1,6 @@
 -- TABLE public.fields    CLASS: dictionary (metadata)    GRAIN: one deal field
 -- Business meaning: decodes the keys and option ids in deal_changes into names and labels (stage labels, lost reasons).
--- See docs/business_context.md; field definitions and Pipedrive links in docs/data_dictionary.md.
+-- See vault/project/business_context.md; field definitions and Pipedrive links in vault/project/data_dictionary.md.
 -- Findings in short:
 --   - primary key: id, declared by the task; field_key is also unique and is what deal_changes references
 --   - foreign keys: none; all 4 field keys are used by deal_changes

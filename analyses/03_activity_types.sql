@@ -1,6 +1,6 @@
 -- TABLE public.activity_types    CLASS: dictionary    GRAIN: one activity type
 -- Business meaning: the kinds of activity; Sales Call 1 (key meeting) and Sales Call 2 (key sc_2) are funnel steps 2.1 and 3.1.
--- See docs/business_context.md; field definitions and Pipedrive links in docs/data_dictionary.md.
+-- See vault/project/business_context.md; field definitions and Pipedrive links in vault/project/data_dictionary.md.
 -- Findings in short:
 --   - primary key: id, declared by the task; type (the key string) is also unique and is what activity references
 --   - foreign keys: none; all 4 types are used by activity

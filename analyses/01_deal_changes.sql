@@ -1,13 +1,13 @@
 -- TABLE public.deal_changes    CLASS: fact (event log)    GRAIN: one change of one field of one deal
--- Business meaning: the history of each deal (created, owner assigned, stage entered, lost reason set). See docs/business_context.md;
--- field definitions and Pipedrive links in docs/data_dictionary.md.
+-- Business meaning: the history of each deal (created, owner assigned, stage entered, lost reason set). See vault/project/business_context.md;
+-- field definitions and Pipedrive links in vault/project/data_dictionary.md.
 -- Findings in short:
 --   - primary key: none declared; (deal_id, changed_field_key, change_time) has no duplicates and no nulls
 --   - foreign keys: field key, owner, stage and lost reason all match their dictionaries (0 orphans); there is no deals table
 --   - nulls: none
 --   - outliers: no outlier month; changes ramp up to 2024-08 and run off to 2025-03 (partial); creations stop 2024-09-13
 --   - descriptive: 4 field keys; 84% of deals skip a stage; 5 deals carry two lifecycles
--- Business questions about the funnel are in 08_business_questions.sql.
+-- Business questions about the funnel are in vault/project/sql/08_business_questions.sql.
 -- Run one statement at a time (cursor in the statement, Cmd+E, Cmd+E in SQLTools).
 
 -- =====================================================================
@@ -162,7 +162,7 @@ order by 1 desc;
 -- add_time: ~240 per month 2024-01 to 2024-08, 92 in 2024-09, then none (creations stop on 2024-09-13, like the activities).
 -- user_id follows creation with a lag (148 in 2024-01 vs 247 created); stage_id peaks 2024-08 (1,150) and runs to 2025-02;
 -- lost_reason starts at 0 in 2024-01 and is the only key left in 2025-03. Each key's curve is smooth: no outlier month.
--- The statistical outlier check on the gaps between stage events is in 09_review_later.sql.
+-- The statistical outlier check on the gaps between stage events is in vault/project/sql/09_review_later.sql.
 
 -- 5d. Average number of changes per deal per month
 -- Why monthly: the export covers 15 months (2024-01 to 2025-03) and the report is monthly, so the month is the grain that shows
