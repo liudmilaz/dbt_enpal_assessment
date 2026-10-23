@@ -3,80 +3,523 @@
 -- result: pass (0 violations), flag (violations found) or info (expected or descriptive, not an error).
 -- class: field (nulls, domain, spelling), record (keys, duplicates), referential (foreign keys), business logic (sequence, meaning), coverage.
 -- severity: proposed dbt test severity. error = our own pipeline would be wrong; warn = known upstream defect, fixed in staging; info = documented only.
--- The detail queries for each finding are in the per-table files 01 to 06 (section named in the last column).
+-- The detail queries for each finding are in the per-table files 01 to 06 and in 08_business_questions.sql (section named in the last column).
+-- Business context: docs/business_context.md.
 --
 -- Not queryable (not in the export): deal status (open, won, lost), pipeline, value, person and organization, who changed a field,
 -- the previous value, and when an activity was completed. See docs/findings.md (Pipedrive terms).
 
-select row_number() over (order by case class when 'record' then 1 when 'field' then 2 when 'referential' then 3 when 'business logic' then 4 else 5 end, no) as no,
-       tbl, class, finding, violations, severity,
-       case when violations = 0 then 'pass' when severity = 'info' then 'info' else 'flag' end as result,
-       detail_in
-from (
-  -- ---------- record: keys and duplicates ----------
-  select 1 as no, 'activity' as tbl, 'record' as class, 'full-row duplicates (a table loaded twice)' as finding,
-         (select count(*) - count(distinct (activity_id, type, assigned_to_user, deal_id, done, due_to)) from public.activity) as violations,
-         'error' as severity, '02_activity 2' as detail_in
-  union all select 2, 'deal_changes', 'record', 'duplicate events on (deal_id, field key, time)',
-         (select count(*) - count(distinct (deal_id, changed_field_key, change_time)) from public.deal_changes), 'error', '01_deal_changes 2'
-  union all select 3, 'activity', 'record', 'activity_id repeated (ids; collisions of unrelated activities)',
-         (select count(*) from (select activity_id from public.activity group by 1 having count(*) > 1) x), 'warn', '02_activity 6c'
-  union all select 4, 'users', 'record', 'rows sharing an email (4 emails, 2 users each)',
-         (select count(*) from public.users where email in (select email from public.users group by 1 having count(*) > 1)), 'warn', '04_users 6a'
-  union all select 5, 'deal_changes', 'record', 'deals with two creation events (add_time)',
-         (select count(*) from (select 1 from public.deal_changes where changed_field_key = 'add_time' group by deal_id having count(*) > 1) x), 'warn', '01_deal_changes 6d'
-  union all select 6, 'deal_changes', 'record', 'deals with two lost_reason events',
-         (select count(*) from (select 1 from public.deal_changes where changed_field_key = 'lost_reason' group by deal_id having count(*) > 1) x), 'warn', '01_deal_changes 6e'
-  union all select 7, 'deal_changes', 'record', 'same-timestamp stage events of one deal (ambiguous order)',
-         (select count(*) from (select 1 from public.deal_changes where changed_field_key = 'stage_id' group by deal_id, change_time having count(*) > 1) x), 'error', '01_deal_changes 6c'
-  -- ---------- field: nulls, domain, spelling ----------
-  union all select 8, 'all', 'field', 'NULLs in required columns (all tables, fields.field_value_options excluded)',
-         (select count(*) from public.deal_changes t where not (t is not null)) + (select count(*) from public.activity t where not (t is not null))
-         + (select count(*) from public.activity_types t where not (t is not null)) + (select count(*) from public.users t where not (t is not null))
-         + (select count(*) from public.stages t where not (t is not null))
-         + (select count(*) from public.fields where id is null or field_key is null or name is null), 'error', 'all tables, section 4'
-  union all select 9, 'fields', 'field', 'NULL field_value_options (expected: user_id and add_time have no option list)',
-         (select count(*) from public.fields where field_value_options is null), 'info', '06_fields 4'
-  union all select 10, 'stages', 'field', 'stage names spelled differently from the labels in fields (Qualified lead vs Qualified Lead)',
-         (select count(*) from public.stages s join (select (j ->> 'id')::int as id, j ->> 'label' as label from public.fields f, jsonb_array_elements(f.field_value_options) j where f.field_key = 'stage_id') o on o.id = s.stage_id where s.stage_name <> o.label), 'info', '05_stages 6a'
-  union all select 11, 'deal_changes', 'field', 'stage ids outside 1 to 9',
-         (select count(*) from public.deal_changes where changed_field_key = 'stage_id' and new_value::int not between 1 and 9), 'error', '01_deal_changes 3'
-  -- ---------- referential: foreign keys ----------
-  union all select 12, 'deal_changes', 'referential', 'owner ids (user_id events) missing from users',
-         (select count(*) from public.deal_changes c left join public.users u on u.id = c.new_value::int where c.changed_field_key = 'user_id' and u.id is null), 'error', '01_deal_changes 3'
-  union all select 13, 'deal_changes', 'referential', 'stage ids missing from stages',
-         (select count(*) from public.deal_changes c left join public.stages s on s.stage_id = c.new_value::int where c.changed_field_key = 'stage_id' and s.stage_id is null), 'error', '01_deal_changes 3'
-  union all select 14, 'activity', 'referential', 'assigned users missing from users',
-         (select count(*) from public.activity a left join public.users u on u.id = a.assigned_to_user where u.id is null), 'error', '02_activity 3'
-  union all select 15, 'activity', 'referential', 'activity types missing from activity_types',
-         (select count(*) from public.activity a left join public.activity_types t on t.type = a.type where t.type is null), 'error', '02_activity 3'
-  union all select 16, 'activity', 'referential', 'activity rows whose deal_id is not in deal_changes (no deals table; ids look unrelated)',
-         (select count(*) from public.activity a where not exists (select 1 from public.deal_changes d where d.deal_id = a.deal_id)), 'warn', '02_activity 3, 6b'
-  -- ---------- business logic: sequence and meaning ----------
-  union all select 17, 'deal_changes', 'business logic', 'deals not starting at stage 1',
-         (select count(*) from (select deal_id, (array_agg(new_value::int order by change_time))[1] as first_stage from public.deal_changes where changed_field_key = 'stage_id' group by 1) x where first_stage <> 1), 'error', '01_deal_changes 6c'
-  union all select 18, 'deal_changes', 'business logic', 'stage events dated before the deal was created',
-         (select count(*) from public.deal_changes s join (select deal_id, min(change_time) as ts from public.deal_changes where changed_field_key = 'add_time' group by 1) a using (deal_id) where s.changed_field_key = 'stage_id' and s.change_time < a.ts), 'error', '01_deal_changes 6d'
-  union all select 19, 'deal_changes', 'business logic', 'lost_reason dated before the last stage event (deals)',
-         (select count(distinct l.deal_id) from public.deal_changes l join (select deal_id, max(change_time) as ts from public.deal_changes where changed_field_key = 'stage_id' group by 1) s using (deal_id) where l.changed_field_key = 'lost_reason' and l.change_time < s.ts), 'warn', '01_deal_changes 6e'
-  union all select 20, 'deal_changes', 'business logic', 'stage moves that skip a stage',
-         (select count(*) from (select new_value::int - lag(new_value::int) over (partition by deal_id order by change_time) as mv from public.deal_changes where changed_field_key = 'stage_id') x where mv > 1), 'info', '01_deal_changes 6c'
-  union all select 21, 'deal_changes', 'business logic', 'stage moves that go backward',
-         (select count(*) from (select new_value::int - lag(new_value::int) over (partition by deal_id order by change_time) as mv from public.deal_changes where changed_field_key = 'stage_id') x where mv < 0), 'info', '01_deal_changes 6c'
-  union all select 22, 'deal_changes', 'business logic', 'stage moves that repeat the same stage',
-         (select count(*) from (select new_value::int - lag(new_value::int) over (partition by deal_id order by change_time) as mv from public.deal_changes where changed_field_key = 'stage_id') x where mv = 0), 'info', '01_deal_changes 6c'
-  union all select 23, 'deal_changes', 'business logic', 'deals that reached the last stage but also carry a lost_reason (reason is not a deal outcome)',
-         (select count(distinct m.deal_id) from (select deal_id, max(new_value::int) as mx from public.deal_changes where changed_field_key = 'stage_id' group by 1) m join public.deal_changes l on l.deal_id = m.deal_id and l.changed_field_key = 'lost_reason' where m.mx = 9), 'info', '01_deal_changes 6e'
-  union all select 26, 'deal_changes', 'business logic', 'deals lost as Duplicate Entry (duplicates kept as deals, not merged)',
-         (select count(distinct l.deal_id) from public.deal_changes l where l.changed_field_key = 'lost_reason' and l.new_value = '5'), 'warn', '01_deal_changes 6i'
-  union all select 27, 'deal_changes', 'business logic', 'Duplicate Entry deals that reached Closing or later',
-         (select count(distinct l.deal_id) from public.deal_changes l join (select deal_id, max(new_value::int) as mx from public.deal_changes where changed_field_key = 'stage_id' group by 1) m on m.deal_id = l.deal_id where l.changed_field_key = 'lost_reason' and l.new_value = '5' and m.mx >= 6), 'warn', '01_deal_changes 6i'
-  union all select 28, 'deal_changes', 'business logic', 'Unreachable Customer deals that reached Needs Assessment or later',
-         (select count(distinct l.deal_id) from public.deal_changes l join (select deal_id, max(new_value::int) as mx from public.deal_changes where changed_field_key = 'stage_id' group by 1) m on m.deal_id = l.deal_id where l.changed_field_key = 'lost_reason' and l.new_value = '3' and m.mx >= 3), 'warn', '01_deal_changes 6i'
-  -- ---------- coverage ----------
-  union all select 24, 'activity', 'coverage', 'months with stage events but no activities (activities end 2024-09-13)',
-         (select count(*) from (select distinct date_trunc('month', change_time) as m from public.deal_changes where changed_field_key = 'stage_id') s where m not in (select date_trunc('month', due_to) from public.activity)), 'info', '02_activity 6d'
-  union all select 25, 'users', 'coverage', 'users never referenced by an activity or an owner event',
-         (select count(*) from public.users u where u.id not in (select assigned_to_user from public.activity) and u.id not in (select new_value::int from public.deal_changes where changed_field_key = 'user_id')), 'info', '04_users 6b'
-) f
+-- ---------- shared building blocks ----------
+with deal_changes_base as materialized (  -- read deal_changes once; every per-key CTE below filters this copy instead of scanning the table again
+    select
+        deal_id,
+        change_time,
+        changed_field_key,
+        new_value
+    from public.deal_changes
+),
+stage_events as (  -- filter first: only stage events, so the cast to int below is safe
+    select
+        deal_id,
+        change_time,
+        new_value::int as stage_id,
+        new_value::int - lag(new_value::int) over (partition by deal_id order by change_time) as move
+    from deal_changes_base
+    where changed_field_key = 'stage_id'
+),
+deal_stages as (
+    select
+        deal_id,
+        max(stage_id) as highest_stage,
+        max(change_time) as last_stage_at,
+        (array_agg(stage_id order by change_time))[1] as first_stage
+    from stage_events
+    group by 1
+),
+deal_events as (
+    select
+        deal_id,
+        min(change_time) filter (where changed_field_key = 'add_time') as created_at,
+        count(*) filter (where changed_field_key = 'add_time') as n_created,
+        count(*) filter (where changed_field_key = 'lost_reason') as n_lost_reasons
+    from deal_changes_base
+    group by 1
+),
+owner_events as (  -- filter first: only owner events, so the cast to int is safe
+    select
+        new_value::int as user_id
+    from deal_changes_base
+    where changed_field_key = 'user_id'
+),
+lost_reasons as (  -- filter first: only lost-reason events
+    select
+        deal_id,
+        new_value::int as reason_id,
+        change_time
+    from deal_changes_base
+    where changed_field_key = 'lost_reason'
+),
+stage_ties as (
+    select
+        deal_id,
+        change_time
+    from stage_events
+    group by 1, 2
+    having count(*) > 1
+),
+repeated_activity_ids as (
+    select
+        activity_id
+    from public.activity
+    group by 1
+    having count(*) > 1
+),
+shared_emails as (
+    select
+        email
+    from public.users
+    group by 1
+    having count(*) > 1
+),
+deal_ids as (
+    select distinct
+        deal_id
+    from deal_changes_base
+),
+stage_labels as (  -- unpack the JSON array once: one row per stage option
+    select
+        o.id as stage_id,
+        o.label as stage_label
+    from public.fields f
+    cross join jsonb_to_recordset(f.field_value_options) as o(id int, label text)  -- typed columns declared once
+    where f.field_key = 'stage_id'  -- unpack only the stage field's array
+),
+null_rows as (
+    select
+        count(*) as n_rows
+    from deal_changes_base t
+    where not (t is not null)
+    union all
+    select
+        count(*) as n_rows
+    from public.activity t
+    where not (t is not null)
+    union all
+    select
+        count(*) as n_rows
+    from public.activity_types t
+    where not (t is not null)
+    union all
+    select
+        count(*) as n_rows
+    from public.users t
+    where not (t is not null)
+    union all
+    select
+        count(*) as n_rows
+    from public.stages t
+    where not (t is not null)
+    union all
+    select
+        count(*) as n_rows
+    from public.fields
+    where id is null
+        or field_key is null
+        or name is null
+),
+referenced_users as (
+    select
+        assigned_to_user as user_id
+    from public.activity
+    union
+    select
+        user_id
+    from owner_events
+),
+stage_months as (
+    select distinct
+        date_trunc('month', change_time) as month
+    from stage_events
+),
+activity_months as (
+    select distinct
+        date_trunc('month', due_to) as month
+    from public.activity
+),
+
+-- ---------- one row per finding ----------
+findings as (
+    -- record: keys and duplicates
+    select
+        1 as no,
+        'activity' as tbl,
+        'record' as class,
+        'full-row duplicates (a table loaded twice)' as finding,
+        count(*) - count(distinct (activity_id, type, assigned_to_user, deal_id, done, due_to)) as violations,
+        'error' as severity,
+        '02_activity 2' as detail_in
+    from public.activity
+    union all
+
+    select
+        2 as no,
+        'deal_changes' as tbl,
+        'record' as class,
+        'duplicate events on (deal_id, field key, time)' as finding,
+        count(*) - count(distinct (deal_id, changed_field_key, change_time)) as violations,
+        'error' as severity,
+        '01_deal_changes 2' as detail_in
+    from deal_changes_base
+    union all
+
+    select
+        3 as no,
+        'activity' as tbl,
+        'record' as class,
+        'activity_id repeated (ids; collisions of unrelated activities)' as finding,
+        count(*) as violations,
+        'warn' as severity,
+        '02_activity 2' as detail_in
+    from repeated_activity_ids
+    union all
+
+    select
+        4 as no,
+        'users' as tbl,
+        'record' as class,
+        'rows sharing an email (4 emails, 2 users each)' as finding,
+        count(*) as violations,
+        'warn' as severity,
+        '04_users 2' as detail_in
+    from public.users u
+    join shared_emails e
+        on e.email = u.email
+    union all
+
+    select
+        5 as no,
+        'deal_changes' as tbl,
+        'record' as class,
+        'deals with two creation events (add_time)' as finding,
+        count(*) filter (where n_created > 1) as violations,
+        'warn' as severity,
+        '01_deal_changes 6b' as detail_in
+    from deal_events
+    union all
+
+    select
+        6 as no,
+        'deal_changes' as tbl,
+        'record' as class,
+        'deals with two lost_reason events' as finding,
+        count(*) filter (where n_lost_reasons > 1) as violations,
+        'warn' as severity,
+        '08 B5a' as detail_in
+    from deal_events
+    union all
+
+    select
+        7 as no,
+        'deal_changes' as tbl,
+        'record' as class,
+        'same-timestamp stage events of one deal (ambiguous order)' as finding,
+        count(*) as violations,
+        'error' as severity,
+        '01_deal_changes 6a' as detail_in
+    from stage_ties
+    union all
+
+    -- field: nulls, domain, spelling
+    select
+        8 as no,
+        'all' as tbl,
+        'field' as class,
+        'NULLs in required columns (all tables, fields.field_value_options excluded)' as finding,
+        sum(n_rows) as violations,
+        'error' as severity,
+        'all tables, section 4' as detail_in
+    from null_rows
+    union all
+
+    select
+        9 as no,
+        'fields' as tbl,
+        'field' as class,
+        'NULL field_value_options (expected: user_id and add_time have no option list)' as finding,
+        count(*) as violations,
+        'info' as severity,
+        '06_fields 4' as detail_in
+    from public.fields
+    where field_value_options is null
+    union all
+
+    select
+        10 as no,
+        'stages' as tbl,
+        'field' as class,
+        'stage names spelled differently from the labels in fields (Qualified lead vs Qualified Lead)' as finding,
+        count(*) as violations,
+        'info' as severity,
+        '05_stages 6a' as detail_in
+    from public.stages s
+    join stage_labels l
+        on l.stage_id = s.stage_id
+    where s.stage_name <> l.stage_label
+    union all
+
+    select
+        11 as no,
+        'deal_changes' as tbl,
+        'field' as class,
+        'stage ids outside 1 to 9' as finding,
+        count(*) as violations,
+        'error' as severity,
+        '01_deal_changes 3' as detail_in
+    from stage_events
+    where stage_id not between 1 and 9
+    union all
+
+    -- referential: foreign keys
+    select
+        12 as no,
+        'deal_changes' as tbl,
+        'referential' as class,
+        'owner ids (user_id events) missing from users' as finding,
+        count(*) as violations,
+        'error' as severity,
+        '01_deal_changes 3' as detail_in
+    from owner_events e
+    left join public.users u
+        on u.id = e.user_id
+    where u.id is null
+    union all
+
+    select
+        13 as no,
+        'deal_changes' as tbl,
+        'referential' as class,
+        'stage ids missing from stages' as finding,
+        count(*) as violations,
+        'error' as severity,
+        '01_deal_changes 3' as detail_in
+    from stage_events e
+    left join public.stages s
+        on s.stage_id = e.stage_id
+    where s.stage_id is null
+    union all
+
+    select
+        14 as no,
+        'activity' as tbl,
+        'referential' as class,
+        'assigned users missing from users' as finding,
+        count(*) as violations,
+        'error' as severity,
+        '02_activity 3' as detail_in
+    from public.activity a
+    left join public.users u
+        on u.id = a.assigned_to_user
+    where u.id is null
+    union all
+
+    select
+        15 as no,
+        'activity' as tbl,
+        'referential' as class,
+        'activity types missing from activity_types' as finding,
+        count(*) as violations,
+        'error' as severity,
+        '02_activity 3' as detail_in
+    from public.activity a
+    left join public.activity_types t
+        on t.type = a.type
+    where t.type is null
+    union all
+
+    select
+        16 as no,
+        'activity' as tbl,
+        'referential' as class,
+        'activity rows whose deal_id is not in deal_changes (no deals table; ids look unrelated)' as finding,
+        count(*) as violations,
+        'warn' as severity,
+        '02_activity 3; 08 B4b' as detail_in
+    from public.activity a
+    left join deal_ids d
+        on d.deal_id = a.deal_id
+    where d.deal_id is null
+    union all
+
+    -- business logic: sequence and meaning
+    select
+        17 as no,
+        'deal_changes' as tbl,
+        'business logic' as class,
+        'deals not starting at stage 1' as finding,
+        count(*) as violations,
+        'error' as severity,
+        '01_deal_changes 6a' as detail_in
+    from deal_stages
+    where first_stage <> 1
+    union all
+
+    select
+        18 as no,
+        'deal_changes' as tbl,
+        'business logic' as class,
+        'stage events dated before the deal was created' as finding,
+        count(*) as violations,
+        'error' as severity,
+        '08 B1a' as detail_in
+    from stage_events s
+    join deal_events d
+        on d.deal_id = s.deal_id
+    where s.change_time < d.created_at
+    union all
+
+    select
+        19 as no,
+        'deal_changes' as tbl,
+        'business logic' as class,
+        'lost_reason dated before the last stage event (deals)' as finding,
+        count(distinct l.deal_id) as violations,
+        'warn' as severity,
+        '08 B5a' as detail_in
+    from lost_reasons l
+    join deal_stages d
+        on d.deal_id = l.deal_id
+    where l.change_time < d.last_stage_at
+    union all
+
+    select
+        20 as no,
+        'deal_changes' as tbl,
+        'business logic' as class,
+        'stage moves that skip a stage' as finding,
+        count(*) as violations,
+        'info' as severity,
+        '01_deal_changes 6a' as detail_in
+    from stage_events
+    where move > 1
+    union all
+
+    select
+        21 as no,
+        'deal_changes' as tbl,
+        'business logic' as class,
+        'stage moves that go backward' as finding,
+        count(*) as violations,
+        'info' as severity,
+        '01_deal_changes 6a' as detail_in
+    from stage_events
+    where move < 0
+    union all
+
+    select
+        22 as no,
+        'deal_changes' as tbl,
+        'business logic' as class,
+        'stage moves that repeat the same stage' as finding,
+        count(*) as violations,
+        'info' as severity,
+        '01_deal_changes 6a' as detail_in
+    from stage_events
+    where move = 0
+    union all
+
+    select
+        23 as no,
+        'deal_changes' as tbl,
+        'business logic' as class,
+        'deals that reached the last stage but also carry a lost_reason (reason is not a deal outcome)' as finding,
+        count(distinct l.deal_id) as violations,
+        'info' as severity,
+        '08 B5b' as detail_in
+    from lost_reasons l
+    join deal_stages d
+        on d.deal_id = l.deal_id
+    where d.highest_stage = 9
+    union all
+
+    select
+        26 as no,
+        'deal_changes' as tbl,
+        'business logic' as class,
+        'deals lost as Duplicate Entry (duplicates kept as deals, not merged)' as finding,
+        count(distinct deal_id) as violations,
+        'warn' as severity,
+        '08 B5b' as detail_in
+    from lost_reasons
+    where reason_id = 5
+    union all
+
+    select
+        27 as no,
+        'deal_changes' as tbl,
+        'business logic' as class,
+        'Duplicate Entry deals that reached Closing or later' as finding,
+        count(distinct l.deal_id) as violations,
+        'warn' as severity,
+        '08 B5b' as detail_in
+    from lost_reasons l
+    join deal_stages d
+        on d.deal_id = l.deal_id
+    where l.reason_id = 5
+        and d.highest_stage >= 6
+    union all
+
+    select
+        28 as no,
+        'deal_changes' as tbl,
+        'business logic' as class,
+        'Unreachable Customer deals that reached Needs Assessment or later' as finding,
+        count(distinct l.deal_id) as violations,
+        'warn' as severity,
+        '08 B5b' as detail_in
+    from lost_reasons l
+    join deal_stages d
+        on d.deal_id = l.deal_id
+    where l.reason_id = 3
+        and d.highest_stage >= 3
+    union all
+
+    -- coverage
+    select
+        24 as no,
+        'activity' as tbl,
+        'coverage' as class,
+        'months with stage events but no activities (activities end 2024-09-13)' as finding,
+        count(*) as violations,
+        'info' as severity,
+        '08 B4a' as detail_in
+    from stage_months s
+    left join activity_months a
+        on a.month = s.month
+    where a.month is null
+    union all
+
+    select
+        25 as no,
+        'users' as tbl,
+        'coverage' as class,
+        'users never referenced by an activity or an owner event' as finding,
+        count(*) as violations,
+        'info' as severity,
+        '04_users 6a' as detail_in
+    from public.users u
+    left join referenced_users r
+        on r.user_id = u.id
+    where r.user_id is null
+)
+
+select
+    row_number() over (order by case class when 'record' then 1 when 'field' then 2 when 'referential' then 3 when 'business logic' then 4 else 5 end, no) as no,
+    tbl,
+    class,
+    finding,
+    violations,
+    severity,
+    case when violations = 0 then 'pass' when severity = 'info' then 'info' else 'flag' end as result,
+    detail_in
+from findings
 order by no;

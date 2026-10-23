@@ -9,9 +9,13 @@ Enpal Senior Analytics Engineer take-home. Build dbt models on Postgres (Docker)
 ## Status
 
 - Environment works: Docker Postgres loaded once, dbt venv, `dbt run` passed on the test model.
-- Exploration is done: one analysis file per raw table (`analyses/01_deal_changes.sql` to `06_fields.sql`) plus `07_data_quality_findings.sql`; dbt test probes (44 tests, 7 fail, each a finding). See `docs/findings.md`. The same findings are charted in the dashboard.
+- Exploration is done: one analysis file per raw table (`analyses/01_deal_changes.sql` to `06_fields.sql`) plus `07_data_quality_findings.sql` and `08_business_questions.sql` (the KPIs read against the business, see `docs/business_context.md`); dbt test probes (44 tests, 7 fail, each a finding). See `docs/findings.md`. The same findings are charted in the dashboard.
 - No models are written yet. **The owner is writing the dbt models herself, for training. Do not write models; explain, review and answer questions.**
 - `docs/model_plan.md` has the intended layers, grains and metric definitions.
+
+## Reminder: review later (owner)
+
+Go through `analyses/09_review_later.sql` and write an answer under each question: the IQR rule on the stage gaps, the flat gap shape (generated data?), the month window of the report spine, and the open questions from the time distribution (157 After Close Calls before the first Closing; activities flat from the first month; owner assigned after creation).
 
 ## Decisions
 

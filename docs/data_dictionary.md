@@ -1,16 +1,8 @@
 # Data dictionary
 
-Only the fields the analysis needs, for the six raw tables from the Pipedrive CRM export. Each field links to the Pipedrive documentation that describes it and says whether the documentation defines it. The same descriptions sit in the header of each `analyses/NN_<table>.sql` file.
+Only the fields the analysis needs, for the six raw tables from the Pipedrive CRM export. Each field links to the Pipedrive documentation that describes it and says whether the documentation defines it. This is the only place the fields are described; the `analyses/NN_<table>.sql` files refer here.
 
-## Business context
-
-From the company description provided with the task: Enpal is a Berlin-based energy company that sells residential and commercial energy solutions (PV systems, battery storage, EV wallboxes, heat pumps, smart meters, energy management) with zero-upfront-cost rental or purchase options. It serves over 115,000 customers; Enpal Energy is its electricity division. The role needs governed metric definitions, a semantic layer and machine-readable documentation that AI analytics tools can use as context.
-
-What this means for the analysis:
-- A household energy sale is long (consultation, offer, contract, installation, after-sales), so the **sales funnel** is a core KPI and every stage needs one documented definition.
-- The export has 1,995 deals and 4,579 activities: **a small sample, not Enpal's scale**. Counts are not representative; the data structure and quality issues are.
-- Reading of the funnel in Enpal's business (**interpretation, to confirm with Enpal**): Lead Generation = a household shows interest; Qualified Lead = fits a product; Sales Call 1 and 2 = consultation calls; Needs Assessment = roof, consumption and budget; Proposal/Quote Preparation = system design and offer (rental or purchase); Negotiation; Closing = contract signed; Implementation/Onboarding = installation and grid connection; Follow-up/Customer Success = after-sales; Renewal/Expansion = add-ons (storage, wallbox, heat pump, electricity).
-- Data quality problems that come from the business process (data entry, definitions) need an owner at Enpal, not a fix in SQL: see `docs/approach.md`.
+The business context (company, the sale, what each table means for the funnel) is in `docs/business_context.md`.
 
 Documentation used (Pipedrive): [Deals API](https://developers.pipedrive.com/docs/api/v1/Deals), [Activities API](https://developers.pipedrive.com/docs/api/v1/Activities), [Activity types API](https://developers.pipedrive.com/docs/api/v1/ActivityTypes), [Stages API](https://developers.pipedrive.com/docs/api/v1/Stages), [Users API](https://developers.pipedrive.com/docs/api/v1/Users), [Deal fields API](https://developers.pipedrive.com/docs/api/v1/DealFields), support articles [Lost reasons](https://support.pipedrive.com/en/article/lost-reasons), [Customize pipeline stages](https://support.pipedrive.com/en/article/how-can-i-customize-my-pipeline-stages) and [How data is organized](https://support.pipedrive.com/en/article/how-is-pipedrive-data-organized). Where the official page does not define a field, the table says so; the API pages show collapsed response schemas, so some response fields can only be confirmed from third-party references (marked unofficial).
 
@@ -72,9 +64,3 @@ Not in the export: stage order (`order_nr`), win probability (`deal_probability`
 | `name` | the field's display name (`field_name`), for example "Deal created" | [Deal fields API](https://developers.pipedrive.com/docs/api/v1/DealFields) | documented |
 | `field_value_options` | the options of a single-option field: id and label; here the stage labels and the lost-reason options | [Deal fields API](https://developers.pipedrive.com/docs/api/v1/DealFields) | documented for single-option fields |
 | `id` | the field's id in the export | [Deal fields API](https://developers.pipedrive.com/docs/api/v1/DealFields) | not defined on the official page |
-
-## What the business context adds to the findings
-
-- **Lost reasons are coded.** The labels in `fields` are Customer Not Ready, Pricing Issues, Unreachable Customer, Product Mismatch and Duplicate Entry. Each applies to about 400 deals and the average highest stage is 6.4 to 6.7 for every reason, so the reason does not describe where a deal stopped. 377 deals are lost as Duplicate Entry although 274 of them reached Closing; 422 are Unreachable Customer although 411 reached Needs Assessment or later. Duplicates should be merged, not carried through the sales process; this needs an answer from the CRM admin.
-- **Pipedrive supports predefined lost reasons** (Company settings, Lost reasons), which is consistent with the option list in `fields`.
-- **The export is a sample.** 1,995 deals against a customer base above 115,000: do not read business size or conversion rates from it.

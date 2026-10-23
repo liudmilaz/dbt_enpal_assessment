@@ -1,8 +1,8 @@
 # EDA findings
 
-Field descriptions with links to the Pipedrive documentation, and the business context of the company, are in `docs/data_dictionary.md`.
+The business context (company, the sale, each KPI's meaning and its data) is in `docs/business_context.md`; field descriptions with links to the Pipedrive documentation in `docs/data_dictionary.md`.
 
-Exploratory analysis of the six raw Pipedrive tables, loaded into schema `public` of the Docker Postgres. One analysis file per raw table in `analyses/`, then one overall data-quality file. Numbers were checked against the loaded data on 2026-10-22. Each finding ends with its consequence for the model.
+Exploratory analysis of the six raw Pipedrive tables, loaded into schema `public` of the Docker Postgres. One analysis file per raw table in `analyses/`, one overall data-quality file, and one file of business questions. Numbers were checked against the loaded data on 2026-10-22. Each finding ends with its consequence for the model.
 
 | File | Table | Class |
 |---|---|---|
@@ -13,8 +13,10 @@ Exploratory analysis of the six raw Pipedrive tables, loaded into schema `public
 | `05_stages.sql` | `stages` | dictionary |
 | `06_fields.sql` | `fields` | dictionary (metadata) |
 | `07_data_quality_findings.sql` | all | the overall list of data-quality findings |
+| `08_business_questions.sql` | all | the funnel KPIs read against the business: what Enpal's sales process would lead us to expect, and what the data shows |
+| `09_review_later.sql` | `deal_changes` | statistical checks (IQR on stage gaps, gap shape, month spine) and open questions to go through later |
 
-Every per-table file has the same sections: 1 all columns, 2 primary key (given or identified, unique, not null), 3 foreign keys (nulls, matches, orphans, parent unique), 4 nulls and not nulls, 5 outliers, 6 descriptive analytics.
+Every per-table file has the same sections: 1 rows and columns, 2 primary key (rows that share the candidate key, found with `count(*) over (partition by ...)`), 3 foreign keys (rows whose value is missing in the parent), 4 nulls per column, 5 outliers (facts only: rows per month, quarter and year, per dimension, and per dimension and month; not applicable for dictionaries), 6 descriptive analytics. The result of each query is written as a comment under it.
 
 **Facts** have one row per event or transaction, a timestamp, grow over time and refer to the dictionaries by key. **Dictionaries** are small reference tables that decode ids or codes into names, are static and are referenced by the facts. `users` is master data: 1,787 rows, current state only, no history.
 
@@ -53,6 +55,17 @@ Every per-table file has the same sections: 1 all columns, 2 primary key (given 
 - **Primary key:** `id`, given by the task, unique and not null. `field_key` is also unique and is the column `deal_changes` references. **Foreign keys:** none. **Nulls:** only `field_value_options`, 2 of 4 rows (`user_id` and `add_time` have no option list; not applicable). **Outliers:** not applicable.
 - **Descriptive:** stage labels and lost-reason options sit in `field_value_options` as JSON.
 - **Consequence:** unnest the JSON in staging for stage labels and lost-reason options; leave `field_value_options` nullable.
+
+## 08_business_questions.sql: the funnel read against the business
+
+Each block starts from what a household energy sale would lead us to expect; the expectation, the result and the consequence are tabled in `docs/business_context.md` (What the business would expect, and what the data shows).
+
+- **B1 Lead Generation:** a deal is created, gets an owner after a median 15 days and enters stage 1 after 35 days (owner first for all 1,995). Creation and stage 1 entry give different monthly Step 1 counts (2024-01: 247 vs 30).
+- **B2 Stages:** the funnel barely narrows (5 deals stop at stage 1, 399 at stage 8, 324 reach stage 9); 84% skip a stage; 5 deals run the pipeline twice.
+- **B3 Sale length:** stage 1 to Closing median 50 days (IQR 35 to 66): plausible.
+- **B4 Sales calls:** flat ~130 per type per month from 2024-01, when only 6 deals had reached stage 2; end 2024-09-13; 50% done for every type; of the 8 activities whose deal id matches, only one fits the deal's timeline.
+- **B5 Lost reason:** set 1 to 30 days after the last stage event for every deal, evenly spread over all stages: a closure label, not an outcome.
+- **B6 Owners:** 1,347 owners for 1,995 deals; 499 of 505 owner changes happen before stage 1.
 
 ## 07_data_quality_findings.sql: all data-quality findings (28 checks)
 
