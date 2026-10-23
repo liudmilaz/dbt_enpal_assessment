@@ -12,3 +12,6 @@ __pycache__/
 
 # local scratch queries
 analyses/test.sql
+
+# learning notes stay in the Drive vault only
+vault/wiki/

@@ -9,12 +9,13 @@ drive_root="$(ls -d "$HOME"/Library/CloudStorage/GoogleDrive-*/"My Drive" 2>/dev
 vault_src="${1:-$drive_root/Learning/enpal_assessment_vault}"
 vault_dst="$repo_root/vault"
 
-# mirror the vault; skip per-machine Obsidian state and OS files
+# mirror the vault; skip per-machine Obsidian state, OS files and the personal learning notes (wiki/ stays in Drive only)
 rsync -a --delete \
     --exclude '.obsidian/workspace*.json' \
     --exclude '.obsidian/cache' \
     --exclude '.trash/' \
     --exclude '.DS_Store' \
+    --exclude 'wiki/' \
     "$vault_src/" "$vault_dst/"
 
 # the repo is public: replace the local Drive path (it contains the personal account) with a neutral prefix,
