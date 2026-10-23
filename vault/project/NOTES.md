@@ -9,13 +9,13 @@ Enpal Senior Analytics Engineer take-home. Build dbt models on Postgres (Docker)
 ## Status
 
 - Environment works: Docker Postgres loaded once, dbt venv, `dbt run` passed on the test model.
-- Exploration is done: one analysis file per raw table (`analyses/01_deal_changes.sql` to `06_fields.sql`) plus `vault/project/sql/07_data_quality_findings.sql` and `vault/project/sql/08_business_questions.sql` (the KPIs read against the business, see `vault/project/business_context.md`); dbt test probes (44 tests, 7 fail, each a finding). See `vault/project/findings.md`. The same findings are charted in the dashboard.
+- Exploration is done: one analysis file per raw table (`analyses/01_deal_changes.sql` to `06_fields.sql`) plus `analyses/07_data_quality_findings.sql` and `analyses/08_business_questions.sql` (the KPIs read against the business, see `vault/project/business_context.md`); dbt test probes (44 tests, 7 fail, each a finding). See `vault/project/findings.md`. The same findings are charted in the dashboard.
 - No models are written yet. **The owner is writing the dbt models herself, for training. Do not write models; explain, review and answer questions.**
 - `vault/project/model_plan.md` has the intended layers, grains and metric definitions.
 
 ## Reminder: review later (owner)
 
-Go through `vault/project/sql/09_review_later.sql` and write an answer under each question: the IQR rule on the stage gaps, the flat gap shape (generated data?), the month window of the report spine, and the open questions from the time distribution (157 After Close Calls before the first Closing; activities flat from the first month; owner assigned after creation).
+Go through `analyses/09_review_later.sql` and write an answer under each question: the IQR rule on the stage gaps, the flat gap shape (generated data?), the month window of the report spine, and the open questions from the time distribution (157 After Close Calls before the first Closing; activities flat from the first month; owner assigned after creation).
 
 ## Decisions
 
@@ -31,13 +31,27 @@ Go through `vault/project/sql/09_review_later.sql` and write an answer under eac
 | Report window 2024-01 to 2025-02 | Proposed by Claude, not confirmed | Months that have stage events; calls are 0 from 2024-10 |
 | `kpi_name` = step name, `funnel_step` = step number as text (`'2.1'`) | Proposed by Claude, not confirmed | The task does not spell out the values |
 
+## Open questions for Enpal (register)
+
+| # | Question | Evidence | Proposed default | Owner (to confirm) | Status |
+|---|---|---|---|---|---|
+| 1 | Do skipped stages count as reached? | 84% of deals skip a stage | Yes, with an `is_inferred` flag (decided) | KPI owner | Decided by the analyst, to confirm |
+| 2 | Is lead generation the creation date or the first stage-1 entry? | median 35 days apart | First stage-1 entry | KPI owner | Open |
+| 3 | Do calls count when scheduled or when done? | about 50% done | Done only | Sales team lead, KPI owner | Open |
+| 4 | Why do activities not match the deals? | 8 of 4,572 ids | Count calls by activity date | CRM admin | Open |
+| 5 | What does the lost reason on every deal mean? | all 1,995 deals | Not used for the funnel | CRM admin, sales operations | Open |
+| 6 | Are the 5 deals with two creations merged records? | two lifecycles each | Count once, by first entry | CRM admin | Open |
+| 7 | Where is the deal status (open, won, lost)? | not in the export | Not used | CRM admin / IT | Open |
+
+Update the status as answers arrive. Decided items are also in the Decisions table above.
+
 ## Lightdash dashboard (local)
 
 Project **Enpal Pipedrive EDA** on the local Lightdash (`http://localhost:8080`), dashboard "Enpal Pipedrive: exploratory analysis per table": one tab per raw table plus an Overview tab, 47 SQL charts. Built by `lightdash/build_dashboard.py` (see `lightdash/README.md`). Sign in with your own Lightdash account.
 
 ## Pipedrive trial (datacanonic.pipedrive.com)
 
-Pipeline set to the 9 stages and the 4 activity types created; sample data removed. Import files are in `pipedrive_trial/` (`build_import_files.py`, `deals_import.csv`, `activities_import.csv`). The import itself is not done yet. Pipedrive imports current state, not change history, so the monthly numbers cannot be checked in the UI. See `vault/project/approach.md`.
+Pipeline set to the 9 stages and the 4 activity types created; sample data removed. Import files are in `pipedrive_trial/` (`build_import_files.py`, `deals_import.csv`, `activities_import.csv`). Deals import started; activities import still to do. Pipedrive imports current state, not change history, so the monthly numbers cannot be checked in the UI. Setup steps: `vault/project/approach.md`.
 
 ## Done
 
@@ -53,7 +67,7 @@ Fork cloned, Docker and venv set up, VS Code SQLTools connection, per-table anal
 
 ## Rules for this project
 
-- Update `vault/project/approach.md` (change log and open-question register) with every change pushed to the PR.
+- Keep the open-question register above up to date when a question is raised or answered. `vault/project/approach.md` holds only why the UI is compared and how the Pipedrive trial was set up (no change log).
 - Never push, open a PR or comment on `aro-91/dbt_enpal_assessment`. Push only to `origin` (`liudmilaz/...`); pass `-R liudmilaz/dbt_enpal_assessment` to `gh`.
 - Do not commit or push unless asked. Commit identity: `zolotukmila@datacanonic.com`.
 - Never run `docker compose up` a second time on a loaded database (the loader appends; `activity` and `deal_changes` have no primary key and double).

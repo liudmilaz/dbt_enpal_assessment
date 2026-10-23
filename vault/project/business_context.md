@@ -8,31 +8,9 @@ From the company description provided with the task: Enpal is a Berlin-based ene
 
 The role (Senior Analytics Engineer) asks for governed metric definitions, a semantic layer and machine-readable documentation that AI analytics tools can use as context. So every KPI below needs one written definition, and every field one description.
 
-## The sale behind the data
+## The sale and the funnel
 
-Selling a solar system to a household is a long, consultative sale: a lead shows interest, a sales rep qualifies it, consultation calls follow, the roof, consumption and budget are assessed, a system is designed and offered (rental or purchase), the offer is negotiated and signed, then the system is installed and connected, and after-sales follows (service, add-ons such as storage, a wallbox, a heat pump or an electricity contract).
-
-Pipedrive, the CRM in the export, records this as **deals** moving through the **stages** of a **pipeline**, owned by **users** (sales staff), with **activities** (calls, meetings) planned against them. Pipedrive terms are explained in `vault/project/findings.md` (Pipedrive terms) and the Obsidian note `pipedrive_crm_terms`.
-
-## The funnel: each KPI, its business meaning and where it is in the data
-
-The step names are the task's. The business meaning is **my interpretation, to confirm with Enpal**.
-
-| Step | KPI | Business meaning (interpretation) | Data | Candidate rule |
-|---|---|---|---|---|
-| 1 | Lead Generation | a household shows interest; a deal is created | `deal_changes` | creation (`add_time` event) **or** first entry into stage 1 (open decision) |
-| 2 | Qualified Lead | the lead fits a product and is worth a consultation | `deal_changes`, `stages` | first entry into stage 2 |
-| 2.1 | Sales Call 1 | first consultation call | `activity`, `activity_types` | activity type `meeting` (name Sales Call 1), done |
-| 3 | Needs Assessment | roof, consumption and budget assessed | `deal_changes` | first entry into stage 3 |
-| 3.1 | Sales Call 2 | second consultation call | `activity` | activity type `sc_2` (Sales Call 2), done |
-| 4 | Proposal/Quote Preparation | system designed, offer (rental or purchase) prepared | `deal_changes` | first entry into stage 4 |
-| 5 | Negotiation | offer discussed and adjusted | `deal_changes` | first entry into stage 5 |
-| 6 | Closing | contract signed | `deal_changes` | first entry into stage 6 |
-| 7 | Implementation/Onboarding | installation and grid connection | `deal_changes` | first entry into stage 7 |
-| 8 | Follow-up/Customer Success | after-sales care | `deal_changes` | first entry into stage 8 |
-| 9 | Renewal/Expansion | add-ons: storage, wallbox, heat pump, electricity | `deal_changes` | first entry into stage 9 |
-
-Not funnel steps: the activity types Follow Up Call and After Close Call.
+My assumption of how a deal goes through Enpal's sale, the funnel diagram and the KPI-to-data map are in `vault/project/sales_funnel_assumptions.md`.
 
 ## How the tables relate
 
@@ -60,7 +38,7 @@ erDiagram
 
 ## What the business would expect, and what the data shows
 
-Each row is a business expectation tested in `vault/project/sql/08_business_questions.sql` (section in brackets).
+Each row is a business expectation tested in `analyses/08_business_questions.sql` (section in brackets).
 
 | Expectation from the business | What the data shows | Consequence for the report |
 |---|---|---|

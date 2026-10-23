@@ -2,6 +2,10 @@
 
 Intended design, from the exploration. The owner writes the models herself; this file is the spec, not code. Items marked *open* depend on decisions not yet confirmed (see `vault/project/NOTES.md`).
 
+## Logical model first
+
+The entities, keys and relationships the models implement are in [[logical_model]] (Mermaid diagram with measured cardinalities). Each model below names the entity it implements; each relationship there becomes a `relationships` test or a documented exception (the deal-activity link is not supported by the data).
+
 ## Layout
 
 `dbt_project.yml` sets `+schema: pipedrive_analytics` and `+materialized: table` for the whole project; override per folder: staging and intermediate as views, marts as tables. YAML next to the models, prefixed with an underscore (`_pipedrive__sources.yml`, `_stg_pipedrive__models.yml`, ...). Sources are declared in `models/staging/pipedrive/_pipedrive__sources.yml` (`postgres_public`).

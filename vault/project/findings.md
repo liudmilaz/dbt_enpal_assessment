@@ -12,9 +12,9 @@ Exploratory analysis of the six raw Pipedrive tables, loaded into schema `public
 | `04_users.sql` | `users` | dictionary (master data) |
 | `05_stages.sql` | `stages` | dictionary |
 | `06_fields.sql` | `fields` | dictionary (metadata) |
-| `vault/project/sql/07_data_quality_findings.sql` | all | the overall list of data-quality findings |
-| `vault/project/sql/08_business_questions.sql` | all | the funnel KPIs read against the business: what Enpal's sales process would lead us to expect, and what the data shows |
-| `vault/project/sql/09_review_later.sql` | `deal_changes` | statistical checks (IQR on stage gaps, gap shape, month spine) and open questions to go through later |
+| `analyses/07_data_quality_findings.sql` | all | the overall list of data-quality findings |
+| `analyses/08_business_questions.sql` | all | the funnel KPIs read against the business: what Enpal's sales process would lead us to expect, and what the data shows |
+| `analyses/09_review_later.sql` | `deal_changes` | statistical checks (IQR on stage gaps, gap shape, month spine) and open questions to go through later |
 
 Every per-table file has the same sections: 1 rows and columns, 2 primary key (rows that share the candidate key, found with `count(*) over (partition by ...)`), 3 foreign keys (rows whose value is missing in the parent), 4 nulls per column, 5 outliers (facts only: rows per month, quarter and year, per dimension, and per dimension and month; not applicable for dictionaries), 6 descriptive analytics. The result of each query is written as a comment under it.
 
@@ -56,7 +56,7 @@ Every per-table file has the same sections: 1 rows and columns, 2 primary key (r
 - **Descriptive:** stage labels and lost-reason options sit in `field_value_options` as JSON.
 - **Consequence:** unnest the JSON in staging for stage labels and lost-reason options; leave `field_value_options` nullable.
 
-## vault/project/sql/08_business_questions.sql: the funnel read against the business
+## analyses/08_business_questions.sql: the funnel read against the business
 
 Each block starts from what a household energy sale would lead us to expect; the expectation, the result and the consequence are tabled in `vault/project/business_context.md` (What the business would expect, and what the data shows).
 
@@ -67,7 +67,7 @@ Each block starts from what a household energy sale would lead us to expect; the
 - **B5 Lost reason:** set 1 to 30 days after the last stage event for every deal, evenly spread over all stages: a closure label, not an outcome.
 - **B6 Owners:** 1,347 owners for 1,995 deals; 499 of 505 owner changes happen before stage 1.
 
-## vault/project/sql/07_data_quality_findings.sql: all data-quality findings (28 checks)
+## analyses/07_data_quality_findings.sql: all data-quality findings (28 checks)
 
 One result row per check; the detail query of each finding is in the per-table file named in its last column. Severity is the proposed dbt test severity (error: our own pipeline would be wrong; warn: known upstream defect, fixed in staging; info: documented only).
 
