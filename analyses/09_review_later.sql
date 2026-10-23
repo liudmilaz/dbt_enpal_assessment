@@ -103,4 +103,7 @@ from public.users;
 --   pipeline or a sample unrelated to these deals? (Question for the CRM admin.)
 -- - Activities are flat from the first month while deal changes ramp up: does the activity export cover a different period
 --   or population?
+-- - activity_id: 11 ids repeat (22 rows, 0.48%), with different user, deal and due date in every pair (02_activity, section 2).
+--   Decided (2026-10-23): duplicates, marked as a data quality issue. Cleansing can follow the process within the domain and needs
+--   a review by the business stakeholder responsible for the KPIs (Sales Call 1 / 2) and the CRM data entry.
 -- - Owner events lag creations (148 vs 247 in 2024-01): is the owner assigned by a routing rule after a waiting time?

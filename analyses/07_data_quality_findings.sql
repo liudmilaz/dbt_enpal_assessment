@@ -176,7 +176,7 @@ findings as (
         3 as no,
         'activity' as tbl,
         'record' as class,
-        'activity_id repeated (ids; collisions of unrelated activities)' as finding,
+        'activity_id repeated (ids): duplicates, data quality issue; cleansing per domain process after business stakeholder review' as finding,
         count(*) as violations,
         'warn' as severity,
         '02_activity 2' as detail_in

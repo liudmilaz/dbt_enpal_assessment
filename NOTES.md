@@ -25,6 +25,7 @@ Go through `analyses/09_review_later.sql` and write an answer under each questio
 | PR goes to `liudmilaz/dbt_enpal_assessment`; never push to `aro-91/dbt_enpal_assessment` | **Decided by the owner** | The task says fork; the original repo holds other candidates' PRs |
 | Step 1 date: first entry into stage 1 (not `add_time`) | Open. Claude recommends stage 1 entry | Same definition as every other step; `add_time` is a median 35 days earlier |
 | Calls (steps 2.1, 3.1): count `done = true` only, as a variable | Open. Claude recommends done-only | About half of calls are done; planned vs held |
+| Repeated `activity_id` (11 ids, 22 rows, 0.48%): treat as duplicates, mark as a data quality issue; cleansing per the process within the domain | **Decided by the owner** (2026-10-23) | Proven not a composite key (02_activity, section 2). Needs a review by the business stakeholder responsible for the KPIs (Sales Call 1 / 2) and the CRM data entry |
 | Snowflake extension branch | Open. Not started | Optional bonus; Postgres is the deliverable |
 | A deal with two creation events counts once per step and month, by its first entry | Proposed by Claude, not confirmed | 5 deals carry two lifecycles |
 | Report window 2024-01 to 2025-02 | Proposed by Claude, not confirmed | Months that have stage events; calls are 0 from 2024-10 |

@@ -30,7 +30,7 @@ Every per-table file has the same sections: 1 rows and columns, 2 primary key (r
 - **Consequence:** build the funnel from the `stage_id` events; cast `new_value` per key; the deal model counts a deal once (earliest `add_time`, flag for two lifecycles); backfill skipped stages with an `is_inferred` flag (decided); `lost_reason` marks the end of a lifecycle, not a lost deal, and its coded reasons are inconsistent with the stages (ask the CRM admin how it is entered; duplicates should be merged, not carried through the funnel); Step 1 date is an open decision (stage 1 entry recommended).
 
 ## 02_activity.sql: `activity` (fact, 4,579 rows)
-- **Primary key:** none given by the task. `activity_id` is the intended key but is not unique (4,568 distinct of 4,579); the full row is unique. The model needs a surrogate key.
+- **Primary key:** none given by the task. `activity_id` is the intended key (table name + `_id`) but is not unique: 11 ids repeat (22 of 4,579 rows, 0.48%). Proven a data quality issue, not a composite key: user, deal and due date differ in every pair, `(activity_id, type)` still repeats, chance predicts 11.6 collisions. **Decided by the owner:** treated as duplicates and marked as a data quality issue; the cleansing can follow the process within the domain and needs a review by the business stakeholder responsible for the KPIs and the data entry. The full row is unique, so the model can carry a surrogate key.
 - **Foreign keys:** `assigned_to_user` to `users.id` and `type` to `activity_types.type` hold at 100% with 0 nulls. `deal_id` to `deal_changes.deal_id` fails: 8 of 4,579 rows match and the parent column repeats.
 - **Nulls:** none. **Outliers:** none in `due_to`.
 - **Descriptive:** four types (`after_close_call` 1,177, `meeting` 1,145, `follow_up` 1,133, `sc_2` 1,124), about 50% done in every type (2,290 true, 2,289 false). The 11 repeated `activity_id`s are collisions of unrelated activities: deal, user and due date differ in every pair (type in 9 of 11). 4,579 ids from a 900,000-wide range predict about 11.6 chance collisions; 11 were observed. Only 8 of 4,572 distinct activity deal ids exist in `deal_changes`, about what chance gives for two six-digit ranges. Activities fall in 2024-01-01 to 2024-09-13, about 500 a month, the same window as the deal creations.
@@ -75,7 +75,7 @@ One result row per check; the detail query of each finding is in the per-table f
 |---|---|---|---|---|---|
 | 1 | activity | record | full-row duplicates (a table loaded twice) | 0 | error |
 | 2 | deal_changes | record | duplicate events on (deal_id, field key, time) | 0 | error |
-| 3 | activity | record | activity_id repeated (ids; collisions of unrelated activities) | 11 | warn |
+| 3 | activity | record | activity_id repeated (ids): duplicates, data quality issue; cleansing per domain process after business stakeholder review | 11 | warn |
 | 4 | users | record | rows sharing an email (4 emails, 2 users each) | 8 | warn |
 | 5 | deal_changes | record | deals with two creation events (add_time) | 5 | warn |
 | 6 | deal_changes | record | deals with two lost_reason events | 5 | warn |

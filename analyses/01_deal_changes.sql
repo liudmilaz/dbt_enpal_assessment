@@ -33,7 +33,7 @@ where n_dup > 1
 order by deal_id, changed_field_key, change_time; --postgres limitation: no qualify, so filter the window count in a cte
 -- 0 rows: the candidate is unique
 
--- example of how I would identify a compound primary key in SF / BQ:
+-- example of how a compound primary key can be identified in SF / BQ:
 -- select
 --     *
 -- from public.deal_changes
@@ -91,13 +91,13 @@ group by 1;
 -- new_value of the lost reason events -> the option ids inside fields.field_value_options (JSON)
 with lost_reason_counts as (  -- aggregate before the join: 2,000 events become 5 distinct reasons, so the join compares 5 rows, not 2,000
     select
-        new_value::int as reason_id,  -- cast only after the filter: other keys hold timestamps
+        new_value::int as reason_id,  
         count(*) as n_rows
     from public.deal_changes
-    where changed_field_key = 'lost_reason'  -- filter first: only lost-reason events point at the option list
+    where changed_field_key = 'lost_reason'  
     group by 1
 ),
-lost_reason_options as (  -- unpack the JSON array once: one row per option
+lost_reason_options as (  
     select
         o.id as option_id
     from public.fields f
