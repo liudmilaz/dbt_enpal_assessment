@@ -7,8 +7,6 @@
 --   - nulls: none
 --   - outliers: no outlier month; changes ramp up to 2024-08 and run off to 2025-03 (partial); creations stop 2024-09-13
 --   - descriptive: 4 field keys; 84% of deals skip a stage; 5 deals carry two lifecycles
--- Business questions about the funnel are in vault/project/sql/08_business_questions.sql.
--- Run one statement at a time (cursor in the statement, Cmd+E, Cmd+E in SQLTools).
 
 -- =====================================================================
 -- 1. Rows and columns
@@ -129,9 +127,9 @@ from public.deal_changes;
 -- =====================================================================
 -- 5a. Changes per month, with quarter and year
 select
-    date_trunc('month',   change_time)::date as change_month,    -- 2024-03-01
-    date_trunc('quarter', change_time)::date as change_quarter,  -- 2024-01-01
-    date_trunc('year',    change_time)::date as change_year,     -- 2024-01-01
+    date_trunc('month',   change_time)::date as change_month,
+    date_trunc('quarter', change_time)::date as change_quarter,
+    date_trunc('year',    change_time)::date as change_year,
     count(*) as nr_changes
 from public.deal_changes
 group by 1, 2, 3
@@ -149,20 +147,19 @@ group by 1
 order by 2 desc;
 -- stage_id 8906 | user_id 2500 | add_time 2000 | lost_reason 2000; every key covers all 1995 deals
 
--- 5c. Changes per dimension and month (one column per field key)
+-- 5c. Changes per dimension and month
 select
     date_trunc('month', change_time)::date as change_month,
-    count(*) filter (where changed_field_key = 'add_time')    as nr_add_time,
-    count(*) filter (where changed_field_key = 'user_id')     as nr_user_id,
-    count(*) filter (where changed_field_key = 'stage_id')    as nr_stage_id,
-    count(*) filter (where changed_field_key = 'lost_reason') as nr_lost_reason
+    changed_field_key,
+    count(*) as nr_changes
 from public.deal_changes
-group by 1
-order by 1 desc;
+group by 1, 2
+order by 1, 2 desc;
+-- 48 rows: a key with no change in a month has no row (add_time after 2024-09, user_id after 2024-11, lost_reason in 2024-01,
+-- stage_id in 2025-03).
 -- add_time: ~240 per month 2024-01 to 2024-08, 92 in 2024-09, then none (creations stop on 2024-09-13, like the activities).
 -- user_id follows creation with a lag (148 in 2024-01 vs 247 created); stage_id peaks 2024-08 (1,150) and runs to 2025-02;
 -- lost_reason starts at 0 in 2024-01 and is the only key left in 2025-03. Each key's curve is smooth: no outlier month.
--- The statistical outlier check on the gaps between stage events is in vault/project/sql/09_review_later.sql.
 
 -- 5d. Average number of changes per deal per month
 -- Why monthly: the export covers 15 months (2024-01 to 2025-03) and the report is monthly, so the month is the grain that shows
@@ -217,4 +214,4 @@ from public.deal_changes
 where changed_field_key = 'add_time'
 group by 1
 having count(*) > 1;
--- 5 deals; they hold two lifecycles and explain all 8 backward moves (see 08 B2)
+-- 5 deals; they hold two lifecycles and explain all 8 backward moves

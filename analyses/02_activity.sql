@@ -7,7 +7,6 @@
 --   - nulls: none
 --   - outliers: no outlier month or user; flat from the first month; 157 After Close Calls are due before the first Closing
 --   - descriptive: four types, about 1,100 rows each, 50% done; due dates 2024-01-01 to 2024-09-13
--- Run one statement at a time (cursor in the statement, Cmd+E, Cmd+E in SQLTools).
 
 -- =====================================================================
 -- 1. Rows and columns
@@ -87,9 +86,9 @@ from public.activity;
 -- =====================================================================
 -- 5a. Activities per due month, with quarter and year
 select
-    date_trunc('month',   due_to)::date as due_month,    -- 2024-03-01
-    date_trunc('quarter', due_to)::date as due_quarter,  -- 2024-01-01
-    date_trunc('year',    due_to)::date as due_year,     -- 2024-01-01
+    date_trunc('month',   due_to)::date as due_month,
+    date_trunc('quarter', due_to)::date as due_quarter,
+    date_trunc('year',    due_to)::date as due_year,
     count(*) as nr_activities
 from public.activity
 group by 1, 2, 3
@@ -123,22 +122,20 @@ group by 1
 order by 1;
 -- 1,650 users hold 1 to 11 activities each (most 2 or 3; one user 11): no user stands out
 
--- 5c. Activities per dimension and month (one column per type, plus done)
+-- 5c. Activities per dimension and month
 select
     date_trunc('month', due_to)::date as due_month,
-    count(*) filter (where type = 'meeting')          as nr_sales_call_1,
-    count(*) filter (where type = 'sc_2')             as nr_sales_call_2,
-    count(*) filter (where type = 'follow_up')        as nr_follow_up,
-    count(*) filter (where type = 'after_close_call') as nr_after_close_call,
-    count(*) filter (where done)                      as nr_done
+    type,
+    count(*) as nr_activities
 from public.activity
-group by 1
-order by 1 desc;
+group by 1, 2
+order by 1, 2 desc;
+-- 36 rows: every type in every month from 2024-01 to 2024-09.
 -- every type is flat at 115 to 165 per month from the first month; done stays at about half.
 -- After Close Call has 143 activities in 2024-01, but the first deal reaches Closing on 2024-02-02 (157 after-close calls are due
--- before it): another sign that the activities do not belong to these deals (see 08 B4).
+-- before it): another sign that the activities do not belong to these deals.
 
 -- =====================================================================
 -- 6. Descriptive analytics
 -- =====================================================================
--- Covered by section 5 (types, done, users, months) and by vault/project/sql/08_business_questions.sql, B4 (calls against the deals' stages).
+-- Covered by section 5 (types, done, users, months).

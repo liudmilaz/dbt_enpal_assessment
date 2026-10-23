@@ -6,7 +6,6 @@
 --   - foreign keys: none; all 4 types are used by activity
 --   - nulls: none
 --   - descriptive: Follow Up Call is inactive but used by 1,133 activities; active is text ('Yes' / 'No'), not boolean
--- Run one statement at a time (cursor in the statement, Cmd+E, Cmd+E in SQLTools).
 
 -- =====================================================================
 -- 1. Rows and columns
@@ -37,7 +36,7 @@ where n_dup_id > 1
 -- =====================================================================
 -- 3. Foreign keys
 -- =====================================================================
--- None: a dictionary points at nothing. Referenced by activity.type (see 02_activity, section 3).
+-- None: a dictionary points at nothing. Referenced by activity.type.
 
 -- =====================================================================
 -- 4. Nulls per column
