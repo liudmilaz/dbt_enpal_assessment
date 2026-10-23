@@ -4,17 +4,20 @@ The business context (company, the sale, each KPI's meaning and its data) is in 
 
 Exploratory analysis of the six raw Pipedrive tables, loaded into schema `public` of the Docker Postgres. One analysis file per raw table in `analyses/`, one overall data-quality file, and one file of business questions. Numbers were checked against the loaded data on 2026-10-22. Each finding ends with its consequence for the model.
 
+Files `00` to `06` are in the solution PR; `07` to `09` are kept local (gitignored).
+
 | File | Table | Class |
 |---|---|---|
+| `analyses/00_data_quality_issues.sql` | all | the main data quality issues, one block per issue grouped by table, each labelled process or data, with its consequence for the model |
 | `01_deal_changes.sql` | `deal_changes` | fact |
 | `02_activity.sql` | `activity` | fact |
 | `03_activity_types.sql` | `activity_types` | dictionary |
 | `04_users.sql` | `users` | dictionary (master data) |
 | `05_stages.sql` | `stages` | dictionary |
 | `06_fields.sql` | `fields` | dictionary (metadata) |
-| `analyses/07_data_quality_findings.sql` | all | the overall list of data-quality findings |
-| `analyses/08_business_questions.sql` | all | the funnel KPIs read against the business: what Enpal's sales process would lead us to expect, and what the data shows |
-| `analyses/09_review_later.sql` | `deal_changes` | statistical checks (IQR on stage gaps, gap shape, month spine) and open questions to go through later |
+| `analyses/07_data_quality_findings.sql` (local) | all | the overall list of data-quality findings (28 checks) |
+| `analyses/08_business_questions.sql` (local) | all | the funnel KPIs read against the business: what Enpal's sales process would lead us to expect, and what the data shows |
+| `analyses/09_review_later.sql` (local) | `deal_changes` | statistical checks (IQR on stage gaps, gap shape, month spine) and open questions to go through later |
 
 Every per-table file has the same sections: 1 rows and columns, 2 primary key (rows that share the candidate key, found with `count(*) over (partition by ...)`), 3 foreign keys (rows whose value is missing in the parent), 4 nulls per column, 5 outliers (facts only: rows per month, quarter and year, per dimension, and per dimension and month; not applicable for dictionaries), 6 descriptive analytics. The result of each query is written as a comment under it.
 

@@ -38,7 +38,7 @@ erDiagram
 
 ## What the business would expect, and what the data shows
 
-Each row is a business expectation tested in `analyses/08_business_questions.sql` (section in brackets).
+Each row is a business expectation tested in `analyses/08_business_questions.sql` (local only; section in brackets).
 
 | Expectation from the business | What the data shows | Consequence for the report |
 |---|---|---|

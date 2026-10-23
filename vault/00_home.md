@@ -21,10 +21,13 @@ The single place for the project documentation, the data quality findings and th
 | [[deal_history_and_questions_for_enpal]] | Deal 399956, stage skipping, backfill, questions for Enpal with SQL |
 | [[logical_model]] | Business entities, keys and relationships (1 to 1, 1 to many) with measured cardinalities, Mermaid diagram |
 | [[model_plan]] | Intended layers, grains, metric definitions, tests |
+| [[elementary_rollout]] | Data quality tests and monitoring with Elementary: issue-to-test map, phases, who does what |
 | [[approach]] | Why compare with the UI and talk to stakeholders; how the Pipedrive trial account was set up |
 | [[NOTES]] | Status, decisions, open questions register, reminders, commands |
 
-This vault holds text and diagrams only. All SQL (the per-table profiling `analyses/01` to `06`, the data quality findings `07`, the business questions `08`, the checks to revisit `09`) and the dbt solution are in the repo, in the solution PR.
+This vault holds text and diagrams only. The SQL is in the repo:
+- in the solution PR: the main data quality issues per table `analyses/00_data_quality_issues.sql`, the per-table profiling `analyses/01` to `06`, and the dbt solution;
+- local only (gitignored): the full data quality checks `07`, the business questions `08`, the checks to revisit `09`.
 
 ## Learning notes
 
