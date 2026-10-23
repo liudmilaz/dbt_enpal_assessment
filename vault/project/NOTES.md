@@ -85,6 +85,6 @@ dbt build
 
 ## Other places
 
-- Learning vault (notes and flashcards): `~/GoogleDrive/Learning/enpal_assessment_vault/` (`wiki/`, `flashcards/`).
+- Project vault (Obsidian, source of the documentation): `Learning/enpal_assessment_vault/` in Google Drive (`project/`, `wiki/`); copied to the repo's `vault/` by `scripts/sync_vault.sh`. Flashcards are kept outside the vault, in `Learning/claude_based_learning/flashcards/project/`.
 - Skills repo: `~/GoogleDrive/career/code/data-engineering-agent-skills`, branch `skills/eda`, PR #6 on `liudmilaz/data-engineering-agent-skills`.
 - Exploration dashboard: https://claude.ai/artifact/TFJEc4EbMPTMELGNdeFpvJ

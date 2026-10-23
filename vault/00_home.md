@@ -33,4 +33,5 @@ The per-table profiling queries (`analyses/01` to `06`) stay in the dbt repo, in
 ## Learning notes
 
 - `wiki/`: topic notes and the Q&A log, start at [[00_index]] and [[03_qa_log]]
-- `flashcards/`: `#card` flashcards per topic
+
+Flashcards are not part of this vault.

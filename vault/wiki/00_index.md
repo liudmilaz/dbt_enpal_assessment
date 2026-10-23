@@ -29,4 +29,4 @@ Pipedrive CRM → dbt on Postgres (Docker) → `rep_sales_funnel_monthly`.
 | [[pipedrive_crm_terms]] | Pipedrive vocabulary and how each exported table maps to it |
 | [[eda_skills]] | The three EDA / data-quality Claude Code skills and the theory behind them |
 
-Flashcards: `flashcards/project/enpal_*.md` (tag `project/enpal`).
+Flashcards are not part of this vault; they live in `Learning/claude_based_learning/flashcards/project/` in Drive.

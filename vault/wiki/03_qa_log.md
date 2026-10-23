@@ -6,7 +6,7 @@ tags:
 
 # Q&A log — questions asked during the implementation
 
-Rule: every question asked while implementing is added here (grouped by topic), linked to its note, and turned into flashcards in `flashcards/project/enpal_*.md`.
+Rule: every question asked while implementing is added here (grouped by topic), and linked to its note. Flashcards are kept outside this vault (Drive: `Learning/claude_based_learning/flashcards/project/enpal_*.md`).
 
 ## Docker and environments → [[docker_and_environments]]
 | Date | Question | Short answer |
