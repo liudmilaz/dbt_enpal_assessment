@@ -9,3 +9,6 @@ __pycache__/
 .vscode/
 .claude/
 .DS_Store
+
+# local scratch queries
+analyses/test.sql
