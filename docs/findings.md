@@ -1,95 +1,99 @@
 # EDA findings
 
-One section per query in `analyses/`. Each ends with its consequence for the model. Raw tables are in schema `public` of the Docker Postgres. Numbers were checked against the loaded data on 2026-10-22.
+Field descriptions with links to the Pipedrive documentation, and the business context of the company, are in `docs/data_dictionary.md`.
 
-Analysis files: `00` select all, `01` nulls and keys, `02` distributions, `03` outliers, `04` descriptive analysis (sections A to I), `05` quality checks.
+Exploratory analysis of the six raw Pipedrive tables, loaded into schema `public` of the Docker Postgres. One analysis file per raw table in `analyses/`, then one overall data-quality file. Numbers were checked against the loaded data on 2026-10-22. Each finding ends with its consequence for the model.
 
-## 00_select_all_raw.sql: plain select of each raw table
-Convenience file for browsing. No finding.
+| File | Table | Class |
+|---|---|---|
+| `01_deal_changes.sql` | `deal_changes` | fact |
+| `02_activity.sql` | `activity` | fact |
+| `03_activity_types.sql` | `activity_types` | dictionary |
+| `04_users.sql` | `users` | dictionary (master data) |
+| `05_stages.sql` | `stages` | dictionary |
+| `06_fields.sql` | `fields` | dictionary (metadata) |
+| `07_data_quality_findings.sql` | all | the overall list of data-quality findings |
 
-## 01_nulls_and_keys.sql: nulls, primary keys and foreign keys
+Every per-table file has the same sections: 1 all columns, 2 primary key (given or identified, unique, not null), 3 foreign keys (nulls, matches, orphans, parent unique), 4 nulls and not nulls, 5 outliers, 6 descriptive analytics.
 
-### Nulls and blanks in every column
-- 24 columns in six tables. The only NULLs are in `fields.field_value_options`: 2 of 4 rows (the `user_id` and `add_time` fields have no option list; not applicable, not missing). No blank strings in any column.
-- **Consequence:** `not_null` on every key and every other column can be a hard error. `field_value_options` stays nullable by design and must not be coalesced. No imputation or NULL filtering is needed.
+**Facts** have one row per event or transaction, a timestamp, grow over time and refer to the dictionaries by key. **Dictionaries** are small reference tables that decode ids or codes into names, are static and are referenced by the facts. `users` is master data: 1,787 rows, current state only, no history.
 
-### Primary and foreign keys
-- Declared in Postgres: primary keys on `activity_types.id`, `fields.id`, `stages.stage_id`, `users.id`. None on `activity` or `deal_changes`, and no foreign key declared anywhere (the CSVs were loaded with `init.sql` only).
-- Found by testing (rows = distinct and no NULLs):
-  - `deal_changes` is unique only on (`deal_id`, `changed_field_key`, `change_time`). `deal_id` repeats (7.7 events per deal), so there is no deal master table in the export.
-  - `activity_id` is not unique (4,568 distinct of 4,579 rows); the full row is. Activity needs a surrogate key.
-  - Alternate keys that are the ones actually referenced: `activity_types.type` (not the primary key `id`) and `fields.field_key` (not the primary key `id`).
-  - `users.email` is not a key (1,783 distinct of 1,787); `stages.stage_name` is unique.
-- Foreign key candidates (child rows found in the parent): `activity.assigned_to_user` to `users.id` 4,579 of 4,579; `activity.type` to `activity_types.type` 4,579 of 4,579; `deal_changes.changed_field_key` to `fields.field_key` 15,406 of 15,406; owner events to `users.id` 2,500 of 2,500; stage events to `stages.stage_id` 8,906 of 8,906; lost-reason events to the `fields` option ids 2,000 of 2,000; **`activity.deal_id` to `deal_changes.deal_id` only 8 of 4,579**.
-- **Consequence:** the key register below drives the tests: `unique` + `not_null` on every key, `relationships` on every foreign key that holds, a surrogate key for `activity`, a composite key for `deal_changes`, and `activity.deal_id` documented as an unrelated key (known failure).
+## 01_deal_changes.sql: `deal_changes` (fact, 15,406 rows)
+- **Primary key:** none given by the task. (`deal_id`, `changed_field_key`, `change_time`) is unique and not null (identified). `deal_id` alone repeats (7.7 events per deal) and there is no deals table.
+- **Foreign keys:** field key to `fields.field_key`; `new_value` to `users.id` (owner), `stages.stage_id` (stage) and the lost-reason option ids, depending on the key. All hold at 100% with 0 nulls.
+- **Nulls:** none.
+- **Outliers:** none in the gaps between stage events (max 35 days, upper fence 45.5). Creation lag to the first stage 1 entry: fence 75 days, 12 deals above (76 to 83 days), all plausible.
+- **Descriptive:** an event log with four field keys: `stage_id` 8,906, `user_id` 2,500, `add_time` 2,000, `lost_reason` 2,000, over 1,995 deals. Every deal starts at stage 1. 2,502 stage moves skip a stage (1,684 deals, 84%), 8 move backward, 2 repeat a stage. 5 deals have two creation events and hold two full lifecycles; they explain every backward move. Every deal has a `lost_reason` (option ids 1 to 5: Customer Not Ready, Pricing Issues, Unreachable Customer, Product Mismatch, Duplicate Entry), also the 324 deals that reached the last stage. The reason does not describe where a deal stopped: the average highest stage is 6.4 to 6.7 for every reason; 377 deals are lost as Duplicate Entry although 274 of them reached Closing, and 422 are Unreachable Customer although 411 reached Needs Assessment or later. Creation to first stage 1 entry: median 35 days (IQR 25 to 45). Gaps between stage events are flat from 0 to about 30 days (mean 15.6, median 16, skewness -0.01, excess kurtosis -1.19; a uniform distribution has -1.2): the timing looks generated. Events per deal range 4 to 17.
+- **Backfilled vs recorded deals per stage:** 1: 1,995 / 1,995; 2: 1,479 / 1,990; 3: 1,305 / 1,951; 4: 1,086 / 1,862; 5: 894 / 1,693; 6: 741 / 1,424; 7: 588 / 1,081; 8: 479 / 723; 9: 324 / 324 (backfill adds 4,152 stage entries).
+- **Consequence:** build the funnel from the `stage_id` events; cast `new_value` per key; the deal model counts a deal once (earliest `add_time`, flag for two lifecycles); backfill skipped stages with an `is_inferred` flag (decided); `lost_reason` marks the end of a lifecycle, not a lost deal, and its coded reasons are inconsistent with the stages (ask the CRM admin how it is entered; duplicates should be merged, not carried through the funnel); Step 1 date is an open decision (stage 1 entry recommended).
 
-#### Key register
+## 02_activity.sql: `activity` (fact, 4,579 rows)
+- **Primary key:** none given by the task. `activity_id` is the intended key but is not unique (4,568 distinct of 4,579); the full row is unique. The model needs a surrogate key.
+- **Foreign keys:** `assigned_to_user` to `users.id` and `type` to `activity_types.type` hold at 100% with 0 nulls. `deal_id` to `deal_changes.deal_id` fails: 8 of 4,579 rows match and the parent column repeats.
+- **Nulls:** none. **Outliers:** none in `due_to`.
+- **Descriptive:** four types (`after_close_call` 1,177, `meeting` 1,145, `follow_up` 1,133, `sc_2` 1,124), about 50% done in every type (2,290 true, 2,289 false). The 11 repeated `activity_id`s are collisions of unrelated activities: deal, user and due date differ in every pair (type in 9 of 11). 4,579 ids from a 900,000-wide range predict about 11.6 chance collisions; 11 were observed. Only 8 of 4,572 distinct activity deal ids exist in `deal_changes`, about what chance gives for two six-digit ranges. Activities fall in 2024-01-01 to 2024-09-13, about 500 a month, the same window as the deal creations.
+- **Consequence:** calls (`meeting` = Sales Call 1, `sc_2` = Sales Call 2) cannot be attributed to deals; count them by `due_to` month from `activity` alone and raise the question with Enpal; `follow_up` and `after_close_call` are not funnel steps; calls are 0 from 2024-10.
 
-| Table | Primary key | Declared? | Alternate or natural key | Foreign keys (match) |
-|---|---|---|---|---|
-| `deal_changes` | (`deal_id`, `changed_field_key`, `change_time`), composite | No | none | `changed_field_key` to `fields.field_key` (100%); `new_value` to `users.id` when key = `user_id` (100%), to `stages.stage_id` when `stage_id` (100%), to the `lost_reason` option ids when `lost_reason` (100%); `deal_id` has no parent table |
-| `activity` | none; surrogate key needed (`activity_id` repeats for 11 ids) | No | full row | `assigned_to_user` to `users.id` (100%); `type` to `activity_types.type` (100%); `deal_id` to `deal_changes.deal_id` (8 of 4,579) |
-| `activity_types` | `id` | Yes | `type` (the key string activities reference) | none |
-| `users` | `id` | Yes | none (`email` is not unique) | none |
-| `stages` | `stage_id` | Yes | `stage_name` | none |
-| `fields` | `id` | Yes | `field_key` (referenced by `deal_changes`) | none |
+## 03_activity_types.sql: `activity_types` (dictionary, 4 rows)
+- **Primary key:** `id`, given by the task, unique and not null. `type` is also unique and is the column activities reference. **Foreign keys:** none (referenced by `activity.type`, 4 of 4 types used). **Nulls:** none. **Outliers:** not applicable.
+- **Descriptive:** `follow_up` is inactive yet used by 1,133 activities; `after_close_call` is not a funnel step.
+- **Consequence:** staging lookup keyed on `type`; Sales Call 1 and 2 come from the seed mapping.
 
-## 02_distributions.sql: shape of the data
+## 04_users.sql: `users` (dictionary, 1,787 rows)
+- **Primary key:** `id`, given by the task, unique and not null. `email` is not a key. **Foreign keys:** none (referenced by `activity.assigned_to_user` and the owner events). **Nulls:** none. **Outliers:** none in `modified`.
+- **Descriptive:** 4 emails are shared by 2 users each (8 rows). `modified` spans 2024-01-02 to 2024-10-28. 1,757 of 1,787 users are referenced; 30 never.
+- **Consequence:** key users on `id`, never on email; email uniqueness test at warn.
 
-- Gaps between stage events are flat from 0 to about 30 days: mean 15.6, median 16, skewness -0.01, excess kurtosis -1.19 (a uniform distribution has -1.2); every decile holds 691 gaps; only 2 gaps exceed 30 days. Activity types are about 25% each; about 500 activities a month until mid September. Events per deal range 4 to 17; the 5 deals with 15 to 17 events are the two-lifecycle deals.
-- **Consequence:** the timing looks generated; do not read business meaning into stage durations.
+## 05_stages.sql: `stages` (dictionary, 9 rows)
+- **Primary key:** `stage_id`, given by the task, unique and not null. **Foreign keys:** none (referenced by the stage events, 9 of 9 used). **Nulls:** none. **Outliers:** not applicable.
+- **Descriptive:** the second stage is spelled "Qualified lead" here and "Qualified Lead" in `fields`. The order of `stage_id` is the funnel order.
+- **Consequence:** step names come from a seed using the task's spelling.
 
-## 03_outliers.sql: outliers in timing
+## 06_fields.sql: `fields` (dictionary, 4 rows)
+- **Primary key:** `id`, given by the task, unique and not null. `field_key` is also unique and is the column `deal_changes` references. **Foreign keys:** none. **Nulls:** only `field_value_options`, 2 of 4 rows (`user_id` and `add_time` have no option list; not applicable). **Outliers:** not applicable.
+- **Descriptive:** stage labels and lost-reason options sit in `field_value_options` as JSON.
+- **Consequence:** unnest the JSON in staging for stage labels and lost-reason options; leave `field_value_options` nullable.
 
-- Gaps between consecutive stage events: max 35 days, IQR upper fence 45.5, none above. Creation lag: fence 75 days, 12 deals above (76 to 83 days), all plausible.
-- **Consequence:** no outlier treatment; do not drop or cap.
+## 07_data_quality_findings.sql: all data-quality findings (28 checks)
 
-## 04_descriptive_analysis.sql: what the data contains
+One result row per check; the detail query of each finding is in the per-table file named in its last column. Severity is the proposed dbt test severity (error: our own pipeline would be wrong; warn: known upstream defect, fixed in staging; info: documented only).
 
-### A. Size and date coverage
-- `deal_changes` 15,406 rows, 2024-01-01 to 2025-03-11. `activity` 4,579 rows, 2024-01-01 to 2024-09-13. `users` 1,787, `stages` 9, `fields` 4, `activity_types` 4.
-- A double Docker load would show `activity` = 9,158 (this happened once and was reset).
-- **Consequence:** these counts are the reference for the load check. Activity ends 2024-09-13, so calls are 0 from 2024-10.
+| # | Table | Class | Finding | Violations | Severity |
+|---|---|---|---|---|---|
+| 1 | activity | record | full-row duplicates (a table loaded twice) | 0 | error |
+| 2 | deal_changes | record | duplicate events on (deal_id, field key, time) | 0 | error |
+| 3 | activity | record | activity_id repeated (ids; collisions of unrelated activities) | 11 | warn |
+| 4 | users | record | rows sharing an email (4 emails, 2 users each) | 8 | warn |
+| 5 | deal_changes | record | deals with two creation events (add_time) | 5 | warn |
+| 6 | deal_changes | record | deals with two lost_reason events | 5 | warn |
+| 7 | deal_changes | record | same-timestamp stage events of one deal (ambiguous order) | 0 | error |
+| 8 | all | field | NULLs in required columns (all tables, fields.field_value_options excluded) | 0 | error |
+| 9 | fields | field | NULL field_value_options (expected: user_id and add_time have no option list) | 2 | info |
+| 10 | stages | field | stage names spelled differently from the labels in fields (Qualified lead vs Qualified Lead) | 1 | info |
+| 11 | deal_changes | field | stage ids outside 1 to 9 | 0 | error |
+| 12 | deal_changes | referential | owner ids (user_id events) missing from users | 0 | error |
+| 13 | deal_changes | referential | stage ids missing from stages | 0 | error |
+| 14 | activity | referential | assigned users missing from users | 0 | error |
+| 15 | activity | referential | activity types missing from activity_types | 0 | error |
+| 16 | activity | referential | activity rows whose deal_id is not in deal_changes (no deals table; ids look unrelated) | 4,571 | warn |
+| 17 | deal_changes | business logic | deals not starting at stage 1 | 0 | error |
+| 18 | deal_changes | business logic | stage events dated before the deal was created | 0 | error |
+| 19 | deal_changes | business logic | lost_reason dated before the last stage event (deals) | 4 | warn |
+| 20 | deal_changes | business logic | stage moves that skip a stage | 2,502 | info |
+| 21 | deal_changes | business logic | stage moves that go backward | 8 | info |
+| 22 | deal_changes | business logic | stage moves that repeat the same stage | 2 | info |
+| 23 | deal_changes | business logic | deals that reached the last stage but also carry a lost_reason (reason is not a deal outcome) | 324 | info |
+| 24 | deal_changes | business logic | deals lost as Duplicate Entry (duplicates kept as deals, not merged) | 377 | warn |
+| 25 | deal_changes | business logic | Duplicate Entry deals that reached Closing or later | 274 | warn |
+| 26 | deal_changes | business logic | Unreachable Customer deals that reached Needs Assessment or later | 411 | warn |
+| 27 | activity | coverage | months with stage events but no activities (activities end 2024-09-13) | 5 | info |
+| 28 | users | coverage | users never referenced by an activity or an owner event | 30 | info |
 
-### B. What the event log tracks
-- `deal_changes` is an event log, one row per field change: `stage_id` 8,906, `user_id` 2,500, `add_time` 2,000, `lost_reason` 2,000. 1,995 deals; each key covers all deals.
-- `new_value` is `varchar(255)`.
-- **Consequence:** build the funnel from `stage_id` events; cast `new_value` per `changed_field_key` in staging. Owner = `user_id` events.
+Not in the export: deal status (open, won, lost), pipeline, value, person and organization, who changed a field, the previous value, and when an activity was completed.
 
-### C. How deals move between stages
-- Every deal starts at stage 1. Stage moves: 2,502 skip at least one stage (1,684 deals, 84%), 8 move backward, 2 repeat the same stage.
-- **Consequence:** "reached stage N" cannot assume N-1 was logged. Owner decided: backfill skipped stages with an `is_inferred` flag.
+**Consequence:** tests per class in the staging YAML with the severities above; the failing `warn` findings stay documented and are fixed in staging (surrogate key for `activity`, one row per deal for the two-lifecycle deals); the open business questions are in `docs/approach.md`.
 
-### D. Deals with two creation events
-- 5 deals (399956, 554294, 556338, 851850, 955417) have two creation events and hold two full lifecycles, for example `1>2>3>4>5>8>1>2>4>5`. They explain every backward move (8) and the 2 repeats.
-- **Consequence:** one row per deal in the deal model (`created_at` = earliest `add_time`, flag `has_two_lifecycles`); count the deal once per step and month by its first entry. Raise the question with Enpal.
-
-### E. What `lost_reason` means
-- Every deal has one (values 1 to 5: 382, 401, 423, 417, 377). The average highest stage reached is 6.4 to 6.7 for every reason, including deals that reached stage 9. The same 5 deals have two `lost_reason` events (2,000 events for 1,995 deals). For 4 of them it is dated before the last stage event.
-- Labels for reasons exist in `fields.field_value_options` (JSONB).
-- **Consequence:** `lost_reason` marks the end of a lifecycle, not a lost deal; it must not remove deals from the funnel. Pipedrive only allows a lost reason on lost deals, so ask Enpal how the export was made. There is no deal status column.
-
-### F. Activity types and the done flag
-- Four types: `after_close_call` 1,177, `meeting` 1,145, `follow_up` 1,133, `sc_2` 1,124. `done` is true for 2,290 and false for 2,289 (about 50% in every type). 11 `activity_id` values appear twice with different content.
-- The 11 repeated ids are collisions, not duplicates: in every pair the deal, assigned user and due date all differ (type differs in 9 of 11). Example: `activity_id` 521731 is a not-done Follow Up Call on deal 762400 (user 918, 2024-07-07) and a done Sales Call 1 on deal 968858 (user 441, 2024-01-09). With 4,579 ids drawn from a 900,000-wide range, chance alone predicts about 11.6 colliding pairs (n(n-1)/(2N)); 11 were observed. Pipedrive ids are unique within an account, so a collision points at the extraction or at generated data, not at the business process.
-- **Consequence:** funnel calls are `meeting` (Sales Call 1) and `sc_2` (Sales Call 2); the other two types are excluded. Give activities a surrogate key. `activity_id` uniqueness test at warn.
-
-### G. Can activities be joined to deals
-- Only 8 of 4,572 distinct activity `deal_id` values exist in `deal_changes`. Both id ranges are six digits (100007 to 999826 and 100086 to 999037), so chance alone gives about as many.
-- **Consequence:** calls cannot be attributed to deals. Count steps 2.1 and 3.1 by `due_to` month from `activity` alone, and document it as an open question for Enpal.
-
-### H. Which date defines Step 1
-- Days from creation to the first stage-1 event: median 35, min 2, max 83, quartiles 25 and 45. Created vs entering stage 1 in 2024-01: 247 vs 30. Deals are created 2024-01-01 to 2024-09-13; stage-1 entries continue to 2024-11.
-- **Consequence:** the Step 1 definition moves deals between months. Open decision; recommendation is first entry into stage 1.
-
-### I. Effect of backfilling skipped stages
-- Distinct deals per stage, recorded vs backfilled: 1: 1,995 / 1,995; 2: 1,479 / 1,990; 3: 1,305 / 1,951; 4: 1,086 / 1,862; 5: 894 / 1,693; 6: 741 / 1,424; 7: 588 / 1,081; 8: 479 / 723; 9: 324 / 324. Backfill adds 4,152 stage entries.
-- Backfill rule used here: a deal counts at every stage from 1 to the highest stage it reached; an inferred entry is dated at the earliest recorded entry of a higher stage.
-- **Consequence:** these are the expected report totals under each rule. Make the rule a dbt variable.
-
-## 05_quality_checks.sql: data-quality rules and proposed tests
-
-Observed: 0 duplicate events, 0 stage events before creation, 0 owner ids missing from users, 0 same-timestamp ties, 0 nulls, 5 deals with two `add_time`, 8 user rows sharing 4 emails.
+### Proposed dbt tests (by check)
 
 | Check | Class | Proposed dbt test (layer) | Severity |
 |---|---|---|---|

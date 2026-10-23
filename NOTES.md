@@ -9,7 +9,7 @@ Enpal Senior Analytics Engineer take-home. Build dbt models on Postgres (Docker)
 ## Status
 
 - Environment works: Docker Postgres loaded once, dbt venv, `dbt run` passed on the test model.
-- Exploration is done: `analyses/00` to `05`, dbt test probes (44 tests, 7 fail, each a finding). See `docs/findings.md`.
+- Exploration is done: one analysis file per raw table (`analyses/01_deal_changes.sql` to `06_fields.sql`) plus `07_data_quality_findings.sql`; dbt test probes (44 tests, 7 fail, each a finding). See `docs/findings.md`. The same findings are charted in the dashboard.
 - No models are written yet. **The owner is writing the dbt models herself, for training. Do not write models; explain, review and answer questions.**
 - `docs/model_plan.md` has the intended layers, grains and metric definitions.
 
@@ -26,13 +26,17 @@ Enpal Senior Analytics Engineer take-home. Build dbt models on Postgres (Docker)
 | Report window 2024-01 to 2025-02 | Proposed by Claude, not confirmed | Months that have stage events; calls are 0 from 2024-10 |
 | `kpi_name` = step name, `funnel_step` = step number as text (`'2.1'`) | Proposed by Claude, not confirmed | The task does not spell out the values |
 
+## Lightdash dashboard (local)
+
+Project **Enpal Pipedrive EDA** on the local Lightdash (`http://localhost:8080`), dashboard "Enpal Pipedrive: exploratory analysis per table": one tab per raw table plus an Overview tab, 47 SQL charts. Built by `lightdash/build_dashboard.py` (see `lightdash/README.md`). Sign in with your own Lightdash account.
+
 ## Pipedrive trial (datacanonic.pipedrive.com)
 
 Pipeline set to the 9 stages and the 4 activity types created; sample data removed. Import files are in `pipedrive_trial/` (`build_import_files.py`, `deals_import.csv`, `activities_import.csv`). The import itself is not done yet. Pipedrive imports current state, not change history, so the monthly numbers cannot be checked in the UI. See `docs/approach.md`.
 
 ## Done
 
-Fork cloned, Docker and venv set up, VS Code SQLTools connection, 13 analysis queries, source declarations with probe tests (`models/staging/pipedrive/_pipedrive__sources.yml`), singular probe tests (`tests/exploration/`), findings and plan docs.
+Fork cloned, Docker and venv set up, VS Code SQLTools connection, per-table analysis files and the overall data-quality findings file, source declarations with probe tests (`models/staging/pipedrive/_pipedrive__sources.yml`), singular probe tests (`tests/exploration/`), findings and plan docs.
 
 ## Next
 
@@ -76,6 +80,6 @@ dbt build
 
 ## Other places
 
-- Learning vault (notes and flashcards): `~/Library/CloudStorage/GoogleDrive-sogrinalv@gmail.com/My Drive/Learning/claude_based_learning/` (`project_wiki/enpal_assessment/`, `flashcards/project/enpal_*.md`).
+- Learning vault (notes and flashcards): `~/Library/CloudStorage/GoogleDrive-sogrinalv@gmail.com/My Drive/Learning/enpal_assessment_vault/` (`wiki/`, `flashcards/`).
 - Skills repo: `~/Library/CloudStorage/GoogleDrive-sogrinalv@gmail.com/My Drive/career/code/data-engineering-agent-skills`, branch `skills/eda`, PR #6 on `liudmilaz/data-engineering-agent-skills`.
 - Exploration dashboard: https://claude.ai/artifact/TFJEc4EbMPTMELGNdeFpvJ
