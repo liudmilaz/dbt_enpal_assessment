@@ -1,0 +1,108 @@
+version: 2
+
+# Exploratory probes: these tests exist to FIND data-quality issues in the raw tables.
+# Failing results are findings (see analyses/ and docs/), not bugs to hide.
+# Classes: field (type/null/domain), record (uniqueness), referential, business logic (tests/exploration).
+sources:
+  - name: postgres_public
+    database: postgres
+    schema: public
+    tables:
+      - name: deal_changes
+        description: "Event log, one row per deal field change. Grain: (deal_id, changed_field_key, change_time)."
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:   # record: fails if the loader ran twice
+              arguments: { combination_of_columns: [deal_id, changed_field_key, change_time] }
+          - dbt_utils.unique_combination_of_columns:   # record: one creation event per deal
+              name: unique_add_time_per_deal
+              arguments: { combination_of_columns: [deal_id] }
+              config: { where: "changed_field_key = 'add_time'" }
+          - dbt_utils.unique_combination_of_columns:   # record: one lost_reason per deal
+              name: unique_lost_reason_per_deal
+              arguments: { combination_of_columns: [deal_id] }
+              config: { where: "changed_field_key = 'lost_reason'" }
+        columns:
+          - name: deal_id
+            data_tests: [not_null]
+          - name: changed_field_key
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments: { values: [add_time, user_id, stage_id, lost_reason] }
+          - name: change_time
+            data_tests: [not_null]
+          - name: new_value
+            data_tests:
+              - not_null
+              - accepted_values:                       # field: domain of stage ids
+                  arguments: { values: ['1', '2', '3', '4', '5', '6', '7', '8', '9'] }
+                  config: { where: "changed_field_key = 'stage_id'" }
+              - accepted_values:                       # field: domain of lost reasons
+                  arguments: { values: ['1', '2', '3', '4', '5'] }
+                  config: { where: "changed_field_key = 'lost_reason'" }
+      - name: activity
+        description: "One scheduled activity. activity_id should identify it."
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:   # record: full row (catches a double load)
+              arguments: { combination_of_columns: [activity_id, type, assigned_to_user, deal_id, done, due_to] }
+        columns:
+          - name: activity_id
+            data_tests: [not_null, unique]
+          - name: type
+            data_tests:
+              - not_null
+              - relationships:                         # referential: activity type exists
+                  arguments:
+                    to: source('postgres_public', 'activity_types')
+                    field: type
+          - name: assigned_to_user
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('postgres_public', 'users')
+                    field: id
+          - name: deal_id
+            data_tests:
+              - not_null
+              - relationships:                         # referential: activity points at a known deal
+                  arguments:
+                    to: source('postgres_public', 'deal_changes')
+                    field: deal_id
+          - name: done
+            data_tests:
+              - accepted_values:
+                  arguments: { values: [true, false], quote: false }
+          - name: due_to
+            data_tests:
+              - not_null
+              - dbt_utils.accepted_range:              # field: plausible dates
+                  arguments: { min_value: "'2024-01-01'", max_value: "'2025-12-31'" }
+      - name: activity_types
+        columns:
+          - name: id
+            data_tests: [not_null, unique]
+          - name: type
+            data_tests: [not_null, unique]
+          - name: active
+            data_tests:
+              - accepted_values:
+                  arguments: { values: ['Yes', 'No'] }
+      - name: stages
+        columns:
+          - name: stage_id
+            data_tests: [not_null, unique]
+          - name: stage_name
+            data_tests: [not_null, unique]
+      - name: fields
+        columns:
+          - name: field_key
+            data_tests: [not_null, unique]
+      - name: users
+        columns:
+          - name: id
+            data_tests: [not_null, unique]
+          - name: email
+            data_tests:
+              - not_null
+              - unique                                 # expected to fail: shared emails
