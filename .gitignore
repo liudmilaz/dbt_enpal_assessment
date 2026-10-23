@@ -12,3 +12,8 @@ __pycache__/
 
 # local scratch queries
 analyses/test.sql
+
+# working analyses kept locally (not part of the PR)
+analyses/07_data_quality_findings.sql
+analyses/08_business_questions.sql
+analyses/09_review_later.sql
