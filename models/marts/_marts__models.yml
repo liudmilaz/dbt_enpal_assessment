@@ -29,7 +29,20 @@ models:
       calls_done_only), which are not the funnel deals (A2) and are 0 from 2024-10 (X1).
     config:
       contract: { enforced: true }
-      meta: { grain: "month, funnel_step", primary_key: [month, funnel_step] }
+      meta:
+        grain: "month, funnel_step"
+        primary_key: [month, funnel_step]
+        # Lightdash: join the step dimension for the funnel order, one metric
+        joins:
+          - join: dim_funnel_step
+            sql_on: ${rep_sales_funnel_monthly.funnel_step} = ${dim_funnel_step.funnel_step}
+            fields: [sort_order, source_type]
+        metrics:
+          total_deals:
+            type: sum
+            sql: ${TABLE}.deals_count
+            label: Deals
+            description: Deals that reached the step, summed over the selected months.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments: { combination_of_columns: [month, funnel_step] }
@@ -37,6 +50,9 @@ models:
       - name: month
         description: "First day of the month."
         data_type: date
+        config:
+          meta:
+            dimension: { type: date, time_intervals: [MONTH, QUARTER, YEAR] }
         constraints: [{ type: not_null }]
       - name: kpi_name
         description: "The step's name, as in the task: Lead Generation, Qualified Lead, Sales Call 1, ..."
@@ -56,3 +72,75 @@ models:
         data_tests:
           - dbt_utils.accepted_range:
               arguments: { min_value: 0 }
+
+  - name: fct_deals
+    description: >
+      One row per deal with its funnel milestones, for the Deals Overview dashboard: 1,995 deals. The export has no won/lost
+      status and no amount, so "closed" means the deal reached stage 6 (Closing), recorded or inferred (1,424 deals).
+      lead_month is the cohort: the month of the first entry into stage 1.
+    config:
+      meta:
+        grain: deal_id
+        primary_key: [deal_id]
+        metrics:
+          leads:
+            type: count_distinct
+            sql: ${TABLE}.deal_id
+            label: Leads
+            description: Deals that entered the funnel (stage 1).
+          closed_deals:
+            type: count_distinct
+            sql: ${TABLE}.deal_id
+            label: Closed deals
+            description: Deals that reached Closing (stage 6), recorded or inferred.
+            filters:
+              - is_closed: true
+          conversion_rate:
+            type: number
+            sql: ${closed_deals} / nullif(${leads}, 0)
+            label: Deal conversion rate
+            description: Closed deals of a lead cohort divided by its leads.
+            format: percent
+            round: 1
+          avg_sales_cycle_days:
+            type: average
+            sql: ${TABLE}.days_lead_to_closing
+            label: Avg sales cycle (days)
+            description: Average days from the first entry into stage 1 to Closing, closed deals only.
+            round: 1
+    columns:
+      - name: deal_id
+        data_tests: [unique, not_null]
+      - name: lead_entered_at
+        description: "First entry into stage 1 (Lead Generation)."
+        data_tests: [not_null]
+      - name: lead_month
+        description: "Month of the first entry into stage 1: the cohort."
+        config:
+          meta:
+            dimension: { type: date, time_intervals: [MONTH, QUARTER, YEAR] }
+      - name: closing_entered_at
+        description: "Entry into Closing (stage 6), recorded or inferred; null when the deal did not get there."
+      - name: closing_month
+        description: "Month of the entry into Closing."
+        config:
+          meta:
+            dimension: { type: date, time_intervals: [MONTH, QUARTER, YEAR] }
+      - name: is_closed
+        description: "Reached Closing: the closest the export gets to a won deal."
+        data_tests: [not_null]
+      - name: is_closing_inferred
+        description: "Closing was skipped in the data and is counted as reached (D2: 683 deals)."
+      - name: days_lead_to_closing
+        description: "Days from the first entry into stage 1 to Closing. The timing is generated (D5): read it as an illustration."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: { min_value: 0 }
+      - name: highest_stage_id
+        description: "Furthest stage reached."
+      - name: has_skipped_stage
+        description: "D1."
+      - name: is_after_sale_without_closing
+        description: "D2."
+      - name: has_two_lifecycles
+        description: "D3."
