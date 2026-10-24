@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_process'],
-    meta={'issue': 'D1', 'owner': 'sales_ops', 'quality_dimension': 'completeness', 'description': 'D1. Deals that jump over at least one stage: 1,684 of 1,995 (84%) on 2026-10-23. Staging backfills the skipped stages with is_inferred.'}
+    meta={'issue': 'D1', 'owner': 'sales_ops', 'quality_dimension': 'completeness', 'description': 'D1. Deals that jump over at least one stage. The intermediate layer backfills the skipped stages with is_inferred.'}
 ) }}
 
 -- stage moves only, with the stage id typed after the filter

@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_process'],
-    meta={'issue': 'D2', 'owner': 'sales_ops', 'quality_dimension': 'completeness', 'description': 'D2. Deals in an after-sale stage (7 to 9) that never entered Closing (6): 683 of 1,081 on 2026-10-23. Installation needs a signed contract, so the Closing was not recorded; the backfill counts them under Closing.'}
+    meta={'issue': 'D2', 'owner': 'sales_ops', 'quality_dimension': 'completeness', 'description': 'D2. Deals in an after-sale stage (7 to 9) that never entered Closing (6). Installation needs a signed contract, so the Closing was not recorded; the backfill counts them under Closing.'}
 ) }}
 
 -- stage moves only, with the stage id typed after the filter

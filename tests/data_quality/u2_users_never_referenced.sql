@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_process'],
-    meta={'issue': 'U2', 'owner': 'crm_admin', 'quality_dimension': 'consistency', 'description': 'U2. Users that own no activity and no deal: 30 of 1,787 on 2026-10-24. Not an error (users is the full user list), but part of the owner shape that does not look like a sales team.'}
+    meta={'issue': 'U2', 'owner': 'crm_admin', 'quality_dimension': 'consistency', 'description': 'U2. Users that own no activity and no deal. Not an error (users is the full user list), but part of the owner shape that does not look like a sales team.'}
 ) }}
 
 -- users referenced as activity owner

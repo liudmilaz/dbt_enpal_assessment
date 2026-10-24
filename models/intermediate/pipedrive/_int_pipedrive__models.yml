@@ -1,21 +1,21 @@
 version: 2
 
 # Intermediate: one business rule or one grain change per model (vault/project/model_plan.md).
-# Tests at error, tag dq_intermediate (dbt_project.yml). Counts measured on 2026-10-24.
+# Tests at error, tag dq_intermediate (dbt_project.yml).
 
 models:
   - name: int_pipedrive__deals
     description: >
-      One row per deal, derived from the change history (there is no deals table): 1,995 deals. created_at is the first
-      add_time; first and last owner; last lost reason (every deal has one, D4: not an outcome). Flags for the known
-      issues: has_skipped_stage (D1, 1,684), is_after_sale_without_closing (D2, 683), has_two_lifecycles (D3, 5).
+      One row per deal, derived from the change history (there is no deals table). created_at is the first
+      add_time; first and last owner; last lost reason (a closure label, D4: not an outcome). Flags for the known
+      issues: has_skipped_stage (D1), is_after_sale_without_closing (D2), has_two_lifecycles (D3).
     config:
       meta: { grain: deal_id, primary_key: [deal_id] }
     columns:
       - name: deal_id
         data_tests: [unique, not_null]
       - name: created_at
-        description: "First creation time; for the 5 two-lifecycle deals the first of two."
+        description: "First creation time; for a two-lifecycle deal (D3) the first of two."
         data_tests: [not_null]
       - name: first_owner_user_id
         data_tests:
@@ -25,7 +25,7 @@ models:
       - name: last_owner_user_id
         description: "Owner after the last owner change; users holds only the current state, so the history is here."
       - name: first_stage_id
-        description: "Stage of the first recorded stage move: 1 for every deal (step 1 relies on it)."
+        description: "Stage of the first recorded stage move: expected 1 (step 1 relies on it)."
         data_tests:
           - accepted_values:
               arguments: { values: [1] }
@@ -41,7 +41,7 @@ models:
         description: "D3: two creation events under one deal_id; the funnel counts the deal once, by its first entries."
 
   - name: int_pipedrive__deal_stage_entries
-    description: "One row per deal and recorded stage, dated by the first entry: 8,891 rows (8,906 stage moves; 15 re-entries of a stage already entered count once)."
+    description: "One row per deal and recorded stage, dated by the first entry: a re-entry of a stage already entered counts once."
     config:
       meta: { grain: "deal_id, stage_id", primary_key: [deal_id, stage_id] }
     data_tests:
@@ -59,8 +59,8 @@ models:
   - name: int_pipedrive__deal_stage_entries_backfilled
     description: >
       One row per deal and every stage from 1 to the highest it reached (decided: a skipped stage counts as reached).
-      Inferred rows (is_inferred) are dated at the first recorded entry of a higher stage. Deals per stage:
-      1,995 / 1,990 / 1,951 / 1,862 / 1,693 / 1,424 / 1,081 / 723 / 324 (stages 1 to 9), as reconciled in model_plan.md.
+      Inferred rows (is_inferred) are dated at the first recorded entry of a higher stage. Reconciled against the
+      recorded entries by tests/marts/rep_funnel_reconciles_to_stage_entries.sql.
     config:
       meta: { grain: "deal_id, stage_id", primary_key: [deal_id, stage_id] }
     data_tests:
@@ -78,8 +78,8 @@ models:
 
   - name: int_pipedrive__sales_calls
     description: >
-      One row per call of the two funnel call types: Sales Call 1 (meeting, step 2.1, 1,142 calls, 566 done) and Sales
-      Call 2 (sc_2, step 3.1, 1,120 calls, 558 done). deal_id is kept but matches the deal history only 8 times (A2).
+      One row per call of the two funnel call types: Sales Call 1 (meeting, step 2.1) and Sales Call 2 (sc_2, step 3.1).
+      deal_id is kept but rarely matches the deal history (A2).
     config:
       meta: { grain: activity_id, primary_key: [activity_id] }
     columns:

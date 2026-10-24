@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_types'],
-    meta={'issue': 'S1', 'owner': 'crm_admin', 'quality_dimension': 'validity', 'description': 'S1. Stage name in stages differs from its label in fields: 1 on 2026-10-23 (Qualified lead vs Qualified Lead). The report uses the task step names.'}
+    meta={'issue': 'S1', 'owner': 'crm_admin', 'quality_dimension': 'validity', 'description': 'S1. Stage name in stages differs from its label in fields (for example Qualified lead vs Qualified Lead). The report uses the task step names.'}
 ) }}
 
 -- the stage labels, unpacked from the stage field's options (JSON array of {id, label})

@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_check', 'dq_process'],
-    meta={'owner': 'data_team', 'quality_dimension': 'consistency', 'description': 'Every deal enters the funnel at stage 1 (Lead Generation): 0 exceptions on 2026-10-23. Step 1 relies on it.'}
+    meta={'owner': 'data_team', 'quality_dimension': 'consistency', 'description': 'Every deal enters the funnel at stage 1 (Lead Generation). Step 1 relies on it.'}
 ) }}
 
 -- stage moves only, numbered per deal in time order

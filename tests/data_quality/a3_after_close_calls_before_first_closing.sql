@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_process'],
-    meta={'issue': 'A3', 'owner': 'sales_ops', 'quality_dimension': 'accuracy', 'description': 'A3. After-close calls due before any deal entered Closing (2024-02-02): 157 on 2026-10-23.'}
+    meta={'issue': 'A3', 'owner': 'sales_ops', 'quality_dimension': 'accuracy', 'description': 'A3. After-close calls due before any deal entered Closing: an after-close call needs a signed contract.'}
 ) }}
 
 -- the first time any deal entered Closing (stage 6)

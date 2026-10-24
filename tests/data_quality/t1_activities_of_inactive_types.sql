@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_process'],
-    meta={'issue': 'T1', 'owner': 'crm_admin', 'quality_dimension': 'validity', 'description': 'T1. Activities of a type marked inactive (Follow Up Call): 1,133 on 2026-10-23. A deactivated type keeps its past activities; new ones should not appear.'}
+    meta={'issue': 'T1', 'owner': 'crm_admin', 'quality_dimension': 'validity', 'description': 'T1. Activities of a type marked inactive (for example Follow Up Call). A deactivated type keeps its past activities; new ones should not appear.'}
 ) }}
 
 -- types switched off in the CRM

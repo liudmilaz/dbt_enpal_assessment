@@ -25,10 +25,10 @@ models:
         grain: "deal_change_key (= deal_id, changed_field_key, change_time)"
         primary_key: [deal_change_key]
         logical_entity: DEAL_EVENT
-        cleaning: "No rows removed (0 full-row duplicates on 2026-10-24); new_value split into one typed column per key (D6)."
+        cleaning: "Full-row duplicates removed (DUP-1); new_value split into one typed column per key (D6)."
         caveats:
           - "D5: change times are generated (creation clock time + whole days); use dates, not durations."
-          - "D3: 5 deals hold two lifecycles, consistent with a duplicate lead merged into one deal."
+          - "D3: a deal_id can hold two lifecycles, consistent with a duplicate lead merged into one deal."
           - "Only four deal properties are exported; no previous value and no author of a change."
     data_tests:
       - dbt_utils.expression_is_true:
@@ -44,7 +44,7 @@ models:
             meta: { issue: D6, quality_dimension: validity }
       - dbt_utils.expression_is_true:
           name: creation_value_equals_change_time__stg_deal_changes
-          description: "For add_time, the value is the change time itself (2,000 of 2,000 on 2026-10-24), so either can date the creation."
+          description: "For add_time, the value is the change time itself , so either can date the creation."
           arguments:
             expression: "deal_created_at = change_time"
           config:
@@ -106,7 +106,7 @@ models:
       - name: lost_reason_id
         description: >
           Lost reason: the deal was closed as lost, with the reason the rep chose from the admin's list (1 to 5, labels in
-          stg_pipedrive__field_options). Filled on lost_reason rows only. In this export every deal has one, so it is a
+          stg_pipedrive__field_options). Filled on lost_reason rows only. It is set on deals that went on to after-sales too, so it is a
           closure label, not a won/lost outcome (D4).
         config:
           meta: { source_column: new_value, crm_label: Lost reason }
@@ -128,11 +128,11 @@ models:
         grain: "activity_id"
         primary_key: [activity_id]
         logical_entity: ACTIVITY
-        cleaning: "11 activity_ids repeated by unrelated activities (A1, 22 rows): the latest due_at per id is kept, 4,579 to 4,568 rows (decided 2026-10-23)."
+        cleaning: "An activity_id repeated by unrelated activities (A1) keeps the row with the latest due_at (decided 2026-10-23)."
         caveats:
-          - "A2: only 8 activities match a deal of the deal history, so calls are counted by due month, not per funnel deal."
-          - "A4: every type is about 50% done, although all are due before the export ends."
-          - "X1: activities end on 2024-09-13, earlier than the deal history."
+          - "A2: activities rarely match a deal of the deal history, so calls are counted by due month, not per funnel deal."
+          - "A4: part of the past activities is never marked done."
+          - "X1: the activity export can end earlier than the deal history."
     columns:
       - name: activity_id
         description: "The activity's id in the CRM."
@@ -189,8 +189,8 @@ models:
         logical_entity: ACTIVITY_TYPE
         cleaning: "The text flag 'Yes' / 'No' is cast to the boolean is_active (T1)."
         caveats:
-          - "Follow Up Call is inactive but keeps 1,133 activities."
-          - "157 After Close Calls are due before the first deal reached Closing (2024-02-02)."
+          - "T1: an inactive type (for example Follow Up Call) keeps its past activities."
+          - "A3: After Close Calls can be due before any deal reached Closing."
     columns:
       - name: activity_type_id
         description: "Technical id of the type."
@@ -227,7 +227,7 @@ models:
         cleaning: "None; the source spelling is kept."
         caveats:
           - "S1: stage 2 reads 'Qualified lead' here and 'Qualified Lead' in the field options."
-          - "D1: 84% of deals skip at least one stage, so stages describe where reps moved the deal, not every step the customer went through."
+          - "D1: deals often skip stages, so stages describe where reps moved the deal, not every step the customer went through."
     columns:
       - name: stage_id
         description: "The position of the step in the pipeline (1 = first); the order of the ids is the order of the funnel."
@@ -257,8 +257,8 @@ models:
         logical_entity: [FIELD_OPTION, LOST_REASON]
         cleaning: "Unpacked from the JSON array fields.field_value_options; fields without a list (Deal created, Owner) have no rows."
         caveats:
-          - "DUP-6: 274 of 377 Duplicate Entry deals reached Closing, so duplicates are not caught early."
-          - "D4-unreachable: 411 of 422 Unreachable Customer deals reached Needs Assessment or later."
+          - "DUP-6: Duplicate Entry deals can reach Closing, so duplicates are not caught early."
+          - "D4: Unreachable Customer deals can reach Needs Assessment or later, so the reason does not say where a deal stopped."
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments: { combination_of_columns: [field_key, option_id] }
@@ -296,9 +296,9 @@ models:
         logical_entity: USER
         cleaning: "Columns renamed only."
         caveats:
-          - "U2: 1,347 owners for 1,995 deals (median 2 each) and 30 users with no deal and no activity: not the shape of a real sales team."
-          - "U1: 4 emails are shared by two users; never join on email."
-          - "X1: user records run to 2024-10-28, after the last activity."
+          - "U2: many owners with very few deals each, and users with no deal and no activity: not the shape of a real sales team."
+          - "U1: an email can be shared by two users; never join on email."
+          - "X1: the user export can end at a different date than the other tables."
     columns:
       - name: user_id
         description: "The person's id; referenced as deal owner (stg_pipedrive__deal_changes.owner_user_id) and as activity assignee."

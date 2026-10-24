@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_check', 'dq_process'],
-    meta={'owner': 'data_team', 'quality_dimension': 'uniqueness', 'description': 'No deal has two stage moves at the same timestamp: 0 on 2026-10-23. Rows here make the stage order, and so the backfill, ambiguous.'}
+    meta={'owner': 'data_team', 'quality_dimension': 'uniqueness', 'description': 'No deal has two stage moves at the same timestamp. Rows here make the stage order, and so the backfill, ambiguous.'}
 ) }}
 
 -- stage moves per deal and timestamp

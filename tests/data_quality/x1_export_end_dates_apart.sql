@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_export'],
-    meta={'issue': 'X1', 'owner': 'crm_admin', 'quality_dimension': 'freshness', 'description': 'X1. Tables ending more than 31 days before deal_changes: 2 on 2026-10-23 (activity 2024-09-13, users 2024-10-28; deal_changes 2025-03-11).'}
+    meta={'issue': 'X1', 'owner': 'crm_admin', 'quality_dimension': 'freshness', 'description': 'X1. Tables ending more than 31 days before deal_changes: the exports were taken at different times, so the report has months without calls.'}
 ) }}
 
 -- last date per table

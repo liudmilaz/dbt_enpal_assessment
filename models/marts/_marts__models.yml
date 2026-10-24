@@ -4,7 +4,7 @@ version: 2
 
 models:
   - name: dim_funnel_step
-    description: "One row per funnel step of the task: 11 rows (9 stage steps, 2 call steps), from seed funnel_steps. Names are the task's."
+    description: "One row per funnel step of the task (9 stage steps, 2 call steps), from seed funnel_steps. Names are the task's."
     config:
       meta: { grain: funnel_step, primary_key: [funnel_step] }
     columns:
@@ -23,10 +23,10 @@ models:
 
   - name: rep_sales_funnel_monthly
     description: >
-      The task's report: one row per month and funnel step, 2024-01 to 2025-02 (vars report_start_month, report_end_month),
+      The task's report: one row per month and funnel step, from var report_start_month to var report_end_month,
       zero-filled. deals_count: stage steps count distinct deals whose first entry into the stage (recorded or inferred)
       falls in the month; steps 2.1 and 3.1 count distinct deal ids with a call due in the month (done only, var
-      calls_done_only), which are not the funnel deals (A2) and are 0 from 2024-10 (X1).
+      calls_done_only), which are not the funnel deals (A2) and are 0 for months after the activity export ends (X1).
     config:
       contract: { enforced: true }
       meta:
@@ -75,8 +75,8 @@ models:
 
   - name: fct_deals
     description: >
-      One row per deal with its funnel milestones, for the Deals Overview dashboard: 1,995 deals. The export has no won/lost
-      status and no amount, so "closed" means the deal reached stage 6 (Closing), recorded or inferred (1,424 deals).
+      One row per deal with its funnel milestones, for the Deals Overview dashboard. The export has no won/lost
+      status and no amount, so "closed" means the deal reached stage 6 (Closing), recorded or inferred.
       lead_month is the cohort: the month of the first entry into stage 1.
     config:
       meta:
@@ -130,7 +130,7 @@ models:
         description: "Reached Closing: the closest the export gets to a won deal."
         data_tests: [not_null]
       - name: is_closing_inferred
-        description: "Closing was skipped in the data and is counted as reached (D2: 683 deals)."
+        description: "Closing was skipped in the data and is counted as reached (D2)."
       - name: days_lead_to_closing
         description: "Days from the first entry into stage 1 to Closing. The timing is generated (D5): read it as an illustration."
         data_tests:

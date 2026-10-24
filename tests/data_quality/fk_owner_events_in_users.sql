@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_check'],
-    meta={'owner': 'data_team', 'quality_dimension': 'consistency', 'description': 'Foreign key deal_changes.new_value (key user_id) to users.id: 0 orphans on 2026-10-23, although users ends on 2024-10-28 (X1). Rows here mean owners missing from users.'}
+    meta={'owner': 'data_team', 'quality_dimension': 'consistency', 'description': 'Foreign key deal_changes.new_value (key user_id) to users.id; users can end earlier than deal_changes (X1). Rows here mean owners missing from users.'}
 ) }}
 
 -- owner changes only, with the user id typed after the filter

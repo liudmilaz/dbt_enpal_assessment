@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_process'],
-    meta={'issue': 'D4', 'owner': 'crm_admin', 'quality_dimension': 'accuracy', 'description': 'D4. Deals lost as Unreachable Customer (reason 3) that reached Needs Assessment or later, so the customer was reached: 411 on 2026-10-24. The lost reason does not describe where a deal stopped.'}
+    meta={'issue': 'D4', 'owner': 'crm_admin', 'quality_dimension': 'accuracy', 'description': 'D4. Deals lost as Unreachable Customer (reason 3) that reached Needs Assessment or later, so the customer was reached. The lost reason does not describe where a deal stopped.'}
 ) }}
 
 -- deals whose lost reason is Unreachable Customer

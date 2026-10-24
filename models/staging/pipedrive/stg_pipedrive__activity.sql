@@ -12,8 +12,8 @@ with source as (
     from {{ source('pipedrive', 'activity') }}
 ),
 
--- 11 activity_ids are shared by two unrelated activities (A1 / DUP-3): keep the latest due_at per id
--- (decided 2026-10-23; 4,579 rows to 4,568). The tie-break on the other columns makes the choice repeatable.
+-- an activity_id can be shared by unrelated activities (A1 / DUP-3): keep the latest due_at per id
+-- (decided 2026-10-23). The tie-break on the other columns makes the choice repeatable.
 deduplicated as (
     select
         activity_id,

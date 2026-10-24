@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_check', 'dq_process'],
-    meta={'owner': 'data_team', 'quality_dimension': 'consistency', 'description': 'No stage move is dated before the deal was created: 0 on 2026-10-23. Rows here mean a wrong timestamp or a creation event missing.'}
+    meta={'owner': 'data_team', 'quality_dimension': 'consistency', 'description': 'No stage move is dated before the deal was created. Rows here mean a wrong timestamp or a creation event missing.'}
 ) }}
 
 -- each deal's first creation time

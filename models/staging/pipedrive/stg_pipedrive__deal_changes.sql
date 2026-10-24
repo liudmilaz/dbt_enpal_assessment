@@ -12,7 +12,7 @@ with source as (
     from {{ source('pipedrive', 'deal_changes') }}
 ),
 
--- remove full-row duplicates only (DUP-1, decided 2026-10-23; 0 removed today); two different values for one
+-- remove full-row duplicates only (DUP-1, decided 2026-10-23); two different values for one
 -- key are a conflict, not a duplicate: they stay and fail the unique test on deal_change_key
 deduplicated as (
     select

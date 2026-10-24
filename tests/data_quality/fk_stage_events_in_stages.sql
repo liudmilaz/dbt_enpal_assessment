@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_check'],
-    meta={'owner': 'data_team', 'quality_dimension': 'consistency', 'description': 'Foreign key deal_changes.new_value (key stage_id) to stages.stage_id: 0 orphans on 2026-10-23. Rows here mean a stage the funnel does not know.'}
+    meta={'owner': 'data_team', 'quality_dimension': 'consistency', 'description': 'Foreign key deal_changes.new_value (key stage_id) to stages.stage_id. Rows here mean a stage the funnel does not know.'}
 ) }}
 
 -- stage moves only, with the stage id typed after the filter

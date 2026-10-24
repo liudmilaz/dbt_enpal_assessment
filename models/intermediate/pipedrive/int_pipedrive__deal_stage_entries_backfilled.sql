@@ -1,5 +1,5 @@
 -- One row per deal and every stage from 1 to the highest stage it reached (STAGE_ENTRY in the logical model).
--- 84% of deals skip stages (D1): a skipped stage counts as reached (decided by the owner), flagged is_inferred and
+-- deals skip stages (D1): a skipped stage counts as reached (decided by the owner), flagged is_inferred and
 -- dated at the first recorded entry of a higher stage. var funnel_backfill_skipped_stages = false keeps recorded rows only.
 
 -- recorded entries

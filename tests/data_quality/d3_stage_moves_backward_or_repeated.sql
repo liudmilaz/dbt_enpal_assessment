@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_duplicates'],
-    meta={'issue': 'D3', 'owner': 'crm_admin', 'quality_dimension': 'consistency', 'description': 'D3 / DUP-2. Stage moves that go backward (8) or repeat the same stage (2): 10 on 2026-10-24, all in the two-lifecycle deals. The funnel counts a stage once, by its first entry.'}
+    meta={'issue': 'D3', 'owner': 'crm_admin', 'quality_dimension': 'consistency', 'description': 'D3 / DUP-2. Stage moves that go backward or repeat the same stage, expected only in the two-lifecycle deals. The funnel counts a stage once, by its first entry.'}
 ) }}
 
 -- stage moves only, with the stage id typed after the filter

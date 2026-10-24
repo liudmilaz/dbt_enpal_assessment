@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_check', 'dq_process'],
-    meta={'owner': 'data_team', 'quality_dimension': 'completeness', 'description': 'Every deal has a creation, an owner and a stage event: 0 deals missing one on 2026-10-23. int_pipedrive__deals relies on all three.'}
+    meta={'owner': 'data_team', 'quality_dimension': 'completeness', 'description': 'Every deal has a creation, an owner and a stage event. int_pipedrive__deals relies on all three.'}
 ) }}
 
 -- the events each deal has
