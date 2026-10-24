@@ -79,30 +79,44 @@ Fork cloned, Docker and venv set up, VS Code SQLTools connection, per-table anal
 - Do not commit or push unless asked. Commit identity: `zolotukmila@datacanonic.com`.
 - Never run `docker compose up` a second time on a loaded database (the loader appends; `activity` and `deal_changes` have no primary key and double).
 
+## Initial setup (Snowflake, since 2026-10-24)
+
+Snowflake, built through the `ue17459` admin connection (`scripts/snowflake_admin.sql`, `scripts/snowflake_load.sql`):
+- **ENPAL_RAW.PIPEDRIVE**: loaded by SYSADMIN; the dbt role can only read it.
+- **ENPAL_TEST**: the default target. `dbt run-operation refresh_src` clones the six raw tables into `ENPAL_TEST.SRC`; the clones use 0 bytes of their own storage, and the command refuses to run on prod.
+- **ENPAL_ANALYTICS_PROD**: the prod target, built from `main` only.
+- **Service user ENPAL_DBT_USER**: key pair only (`~/.ssh/snowflake_enpal_dbt_rsa_key.p8`), no secondary roles. Its details are in `~/.snowflake/enpal.env`; `snow` connection `enpal`.
+- `ENPAL_DB` (the first copy) was dropped on 2026-10-24.
+
+What every database, role and warehouse in the account is for, and how the costs arise: [[snowflake_account_and_costs]]. Plan and as-built notes: [[snowflake_test_env_plan]].
+
 ## Commands
 
 ```bash
 cd "~/GoogleDrive/career/code/dbt_enpal_assessment"
 
-# Docker (Colima is the running runtime)
-docker ps                          # is it up? if not: colima start
-docker compose up -d               # only when the container does not exist yet
-docker compose down -v && docker compose up -d   # reset and reload the CSVs once
-docker exec -it dbt_enpal_assessment-db-1 psql -U admin -d postgres
-
-# dbt: venv is outside Google Drive; profile is profiles.yml in the repo root
-source ~/.venvs/enpal/bin/activate
+# dbt on Snowflake: venv outside Google Drive; profile is profiles.yml in the repo root (default target test)
+source ~/.snowflake/enpal.env
+source ~/.venvs/enpal_sf/bin/activate
 export DBT_PROFILES_DIR=.
 dbt deps
-dbt debug
-dbt test --select "source:*" "test_type:singular" --store-failures   # probes; failing rows go to schema public_dbt_test__audit
-dbt build
+dbt run-operation refresh_src     # fresh zero-copy clones in ENPAL_TEST.SRC
+dbt build                         # target test
+dbt build --target prod           # only from main, after confirmation
+
+# ad-hoc queries as the dbt service user
+snow sql -c enpal -q "select count(*) from enpal_raw.pipedrive.deal_changes"
+
+# data quality report (Elementary), served on http://localhost:8081
+bash scripts/dq_report.sh
 ```
 
-- Postgres: host `localhost`, port `5432`, database `postgres`, user `admin`, password `admin`. Raw tables in schema `public`. dbt output schema: `public_pipedrive_analytics` (from `+schema: pipedrive_analytics`).
-- dbt-core 1.10.23, dbt-postgres 1.9.1, dbt_utils 1.4.1 (`packages.yml`).
-- VS Code: SQLTools connection is in `.vscode/settings.json`. Run a statement with Cmd+E, Cmd+E.
-- Project skills (EDA, from the owner's skills repo PR #6) are in `.claude/skills/`, excluded from git via `.git/info/exclude`.
+- dbt-core 1.10.23, dbt-snowflake 1.10.8, dbt_utils, Elementary 0.26.1 (`packages.yml`); Elementary CLI in its own venv `~/.venvs/edr`.
+- Project skills (EDA, workflow, Snowflake + dbt from scratch) are in `.claude/skills/`, excluded from git.
+
+### Before 2026-10-24: Postgres (history)
+
+The task's setup: Docker (`docker compose up`, Colima runtime), Postgres `localhost:5432`, database `postgres`, user/password `admin`, raw tables in `public`, dbt output in `public_pipedrive_analytics`, venv `~/.venvs/enpal` with dbt-postgres 1.9.1. Replaced by Snowflake (decision in the table above); the Docker files were removed from the repo.
 
 ## Other places
 

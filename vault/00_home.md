@@ -25,6 +25,7 @@ The single place for the project documentation, the data quality findings and th
 | [[elementary_rollout]] | Data quality tests and monitoring with Elementary: issue-to-test map, phases, who does what |
 | [[elementary_report_layout]] | Elementary test types, and how the report is laid out to track each detected issue |
 | [[snowflake_test_env_plan]] | Snowflake test environment as a zero-copy clone (shine_test pattern) and the model build plan |
+| [[snowflake_account_and_costs]] | What each Snowflake database, role and warehouse is for, and how the costs arise |
 | [[approach]] | Why compare with the UI and talk to stakeholders; how the Pipedrive trial account was set up |
 | [[NOTES]] | Status, decisions, open questions register, reminders, commands |
 
