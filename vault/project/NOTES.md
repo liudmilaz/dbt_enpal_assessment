@@ -51,7 +51,9 @@ Update the status as answers arrive. Decided items are also in the Decisions tab
 
 ## Lightdash dashboard (local)
 
-Project **Enpal Pipedrive EDA** on the local Lightdash (`http://localhost:8080`), dashboard "Enpal Pipedrive: exploratory analysis per table": one tab per raw table plus an Overview tab, 47 SQL charts. Built by `lightdash/build_dashboard.py` (see `lightdash/README.md`). Sign in with your own Lightdash account.
+2026-10-24, owner's rule: **Lightdash shows business dashboards only; every data quality issue lives in Elementary.** The exploration dashboard (47 SQL charts on Postgres) and its charts were deleted. All 28 findings of `analyses/07_data_quality_findings.sql` are Elementary tests (the last six added the same day: D3 backward or repeated moves, DUP-6, D4 Unreachable Customer, U2 users never referenced, options on single-option fields). A snapshot of the 145 test results is the Claude dashboard "Pipedrive data quality" (https://claude.ai/artifact/QdybrKkyQsRV6Eyn1cUTbU).
+
+The new Lightdash dashboard "Deals Overview" (gauge, big numbers, trend, funnels) runs on `fct_deals` and `rep_sales_funnel_monthly` through dbt metrics in `models/marts/_marts__models.yml`; built by `lightdash/build_funnel_dashboard.py` after `lightdash deploy --create` (the owner runs the deploy, because it hands the Snowflake key to Lightdash). No amounts and no won/lost status in the export: closed = reached Closing.
 
 ## Pipedrive trial (datacanonic.pipedrive.com)
 
