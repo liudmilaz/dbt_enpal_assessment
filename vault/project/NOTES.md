@@ -25,10 +25,14 @@ Go through `analyses/09_review_later.sql` (local only) and write an answer under
 | PR goes to `liudmilaz/dbt_enpal_assessment`; never push to `aro-91/dbt_enpal_assessment` | **Decided by the owner** | The task says fork; the original repo holds other candidates' PRs |
 | Step 1 date: first entry into stage 1 (not `add_time`) | Open. Claude recommends stage 1 entry | Same definition as every other step; `add_time` is a median 35 days earlier |
 | Calls (steps 2.1, 3.1): count `done = true` only, as a variable | Open. Claude recommends done-only | About half of calls are done; planned vs held |
+| Surrogate key over all columns on `deal_changes` only (`deal_change_key`); deduplication = keep the first row per key | **Decided by the owner** (2026-10-23) | No natural key; full rows are unique (0 removed today). See `vault/project/cleansing_proposals.md` (DUP-1) |
+| `activity`: no surrogate key; `activity_id` is the primary key; deduplicate to one row per id, keeping the latest `due_to` | **Decided by the owner** (2026-10-23) | 4,579 rows to 4,568 (11 removed); steps 2.1 and 3.1 (done only) each lose 1 in 2024-01 and 2024-04. See `cleansing_proposals.md` (DUP-3) |
 | Repeated `activity_id` (11 ids, 22 rows, 0.48%): treat as duplicates, mark as a data quality issue; cleansing per the process within the domain | **Decided by the owner** (2026-10-23) | Proven not a composite key (02_activity, section 2). Needs a review by the business stakeholder responsible for the KPIs (Sales Call 1 / 2) and the CRM data entry |
-| Snowflake extension branch | Open. Not started | Optional bonus; Postgres is the deliverable |
+| Platform, first decision: the task's Postgres in Docker is the deliverable; Snowflake only as an optional extension branch | **Superseded** on 2026-10-24 (kept for the history) | The task ships a Postgres setup (docker compose, admin/admin); Snowflake was a bonus |
+| Platform (2026-10-24): **the project runs on Snowflake** (own trial account UE17459); the repo sent to Enpal contains no Postgres | **Decided by the owner**; **agreed by Enpal** in writing: own Snowflake test account allowed; AI tools allowed as support, not to do the whole task | The job description also asks for semantic views (Snowflake), which the funnel report can show; one platform keeps the repo simple. Layout in [[snowflake_test_env_plan]] |
+| Who writes the models (2026-10-24): Claude writes, the owner reviews every layer; notification at raw load and at staging with tests | **Decided by the owner** | Earlier: the owner wrote the models for training |
 | A deal with two creation events counts once per step and month, by its first entry | Proposed by Claude, not confirmed | 5 deals carry two lifecycles |
-| Report window 2024-01 to 2025-02 | Proposed by Claude, not confirmed | Months that have stage events; calls are 0 from 2024-10 |
+| Report window 2024-01 to 2025-02 | Proposed by Claude, not confirmed | Months that have stage events; calls are 0 from 2024-10, and so are new deals (last `add_time` 2024-09-13, found by Elementary) |
 | `kpi_name` = step name, `funnel_step` = step number as text (`'2.1'`) | Proposed by Claude, not confirmed | The task does not spell out the values |
 
 ## Open questions for Enpal (register)
@@ -55,13 +59,16 @@ Pipeline set to the 9 stages and the 4 activity types created; sample data remov
 
 ## Done
 
+2026-10-24: Snowflake layout built (ENPAL_RAW, ENPAL_TEST as default target with zero-copy clones, ENPAL_ANALYTICS_PROD), raw loaded, Postgres removed from the repo, staging layer (6 views, 37 tests, all pass) built in ENPAL_TEST.
+
+
 Fork cloned, Docker and venv set up, VS Code SQLTools connection, per-table analysis files and the overall data-quality findings file, source declarations with probe tests (`models/staging/pipedrive/_pipedrive__sources.yml`), singular probe tests (`tests/exploration/`), findings and plan docs.
 
 ## Next
 
-1. Housekeeping: `.gitignore` (`target/`, `logs/`, `dbt_packages/`, `.venv/`), remove tracked `target/`, delete `models/test_model.sql`, add `requirements.txt`, pin the Postgres image tag in `docker-compose.yml`.
+1. ~~Housekeeping~~ done 2026-10-24 on `feature/elementary`: `models/test_model.sql` removed, `requirements*.txt` added (Postgres, Snowflake, Elementary), Postgres image pinned to 18.6; `target/` was never tracked.
 2. Owner writes staging, intermediate and marts models per `vault/project/model_plan.md`.
-3. Promote confirmed probe tests to the staging YAML with severities; delete the rest of `tests/exploration/`.
+3. ~~Promote probe tests~~ done 2026-10-24 for the raw layer: all 7 probes moved to `tests/data_quality/` (renamed, house style), `tests/exploration/` deleted. Staging tests come with the owner's models (phase 3).
 4. Reconcile the report with the numbers in `vault/project/model_plan.md`.
 5. README (setup, assumptions, open questions for Enpal), commit, PR on the fork, zip for the email.
 
@@ -99,6 +106,6 @@ dbt build
 
 ## Other places
 
-- Project vault (Obsidian, source of the documentation): `Learning/enpal_assessment_vault/` in Google Drive (`project/`, `wiki/`); copied to the repo's `vault/` by `scripts/sync_vault.sh`. Flashcards are kept outside the vault, in `Learning/claude_based_learning/flashcards/project/`.
+- Project vault (Obsidian, source of the documentation): `Learning/enpal_assessment_vault/` in Google Drive (`project/`, `wiki/`); copied to the repo's `vault/` by `scripts/sync_vault.sh`.
 - Skills repo: `~/GoogleDrive/career/code/data-engineering-agent-skills`, branch `skills/eda`, PR #6 on `liudmilaz/data-engineering-agent-skills`.
 - Exploration dashboard: https://claude.ai/artifact/TFJEc4EbMPTMELGNdeFpvJ

@@ -72,8 +72,7 @@ erDiagram
         text label
     }
     ACTIVITY {
-        text activity_key PK "surrogate; activity_id repeats"
-        int activity_id
+        int activity_id PK "deduplicated: latest due_at per id"
         text type FK
         int assigned_user_id FK
         int deal_id "intended FK"

@@ -36,6 +36,21 @@ erDiagram
 | `users` | sales staff (current state only) | dictionary, master data |
 | `fields` | the deal fields and their option lists (stage labels, lost reasons) | dictionary, metadata |
 
+Each relationship of the diagram, with its type and the cardinality measured on the loaded data. Read "1 to many" as: one row on the "1" side, many rows on the other. The entity view of the same relationships (deal, stage entry, owner assignment) is in [[logical_model]].
+
+| Relationship (join) | Type | Diagram | Measured |
+|---|---|---|---|
+| deal : `deal_changes` (`deal_id`) | 1 to many | not drawn: no deals table | every deal has 4 to 17 events |
+| `fields` : `deal_changes` (`field_key` = `changed_field_key`) | 1 to many; each event has exactly 1 field | `}o--\|\|` | 4 fields, 2,000 to 8,906 events each; every event matches |
+| `stages` : `deal_changes` stage events (`stage_id` = `new_value`, key `stage_id`) | 1 to many; only stage events have a stage (0 or 1 per event) | `}o--o\|` | 9 stages, 325 to 2,000 stage events each; no stage unused |
+| `users` : `deal_changes` owner events (`id` = `new_value`, key `user_id`) | 1 to many, optional on the user side | `}o--o\|` | 1,347 owners, 1 to 7 owner events each; 440 users never own a deal; every owner id exists |
+| `fields` lost-reason options : `deal_changes` lost-reason events (option id = `new_value`) | 1 to many | `}o--o\|` | 5 reasons, 377 to 423 events each |
+| `fields` : its options (`field_value_options`) | 1 to many, optional (2 of 4 fields have options) | not drawn | `stage_id`: 9 options, `lost_reason`: 5 |
+| `stages` : stage options in `fields` (`stage_id` = option id) | 1 to 1 | not drawn | 9 to 9; one label spelled differently ("Qualified lead" vs "Qualified Lead") |
+| `activity_types` : `activity` (`type` = `type`) | 1 to many; each activity has exactly 1 type | `}o--\|\|` | 4 types, 1,124 to 1,177 activities each |
+| `users` : `activity` (`id` = `assigned_to_user`) | 1 to many, optional on the user side | `}o--\|\|` | 1,650 users with 1 to 11 activities; 137 users with none; every assignee exists |
+| deal : `activity` (`deal_id`) | intended 1 to many; **not supported** by the data | `}o..o{` (dotted: not enforced) | 8 of 4,579 activities match a deal |
+
 ## What the business would expect, and what the data shows
 
 Each row is a business expectation tested in `analyses/08_business_questions.sql` (local only; section in brackets).

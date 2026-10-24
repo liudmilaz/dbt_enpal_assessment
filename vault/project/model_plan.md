@@ -14,8 +14,8 @@ The entities, keys and relationships the models implement are in [[logical_model
 
 | Model | Grain | Key | Notes |
 |---|---|---|---|
-| `stg_pipedrive__deal_changes` | one field change | (`deal_id`, `changed_field_key`, `change_time`) unique | typed `change_time`; keep `new_value` text; add typed columns by key (stage id as int for `stage_id`, owner id as int for `user_id`, timestamp for `add_time`) |
-| `stg_pipedrive__activity` | one activity row | surrogate `activity_key` (hash of all columns) | source `activity_id` repeats for 11 ids; rename `type` to `activity_type`, `done` to `is_done`, `due_to` to `due_at`, `assigned_to_user` to `assigned_user_id` |
+| `stg_pipedrive__deal_changes` | one field change | surrogate `deal_change_key` over all columns, unique after deduplication (decided); (`deal_id`, `changed_field_key`, `change_time`) unique | typed `change_time`; keep `new_value` text; add typed columns by key (stage id as int for `stage_id`, owner id as int for `user_id`, timestamp for `add_time`) |
+| `stg_pipedrive__activity` | one activity | `activity_id` unique after deduplication | source `activity_id` repeats for 11 ids: keep the row with the latest `due_to` per id (decided); rename `type` to `activity_type`, `done` to `is_done`, `due_to` to `due_at`, `assigned_to_user` to `assigned_user_id` |
 | `stg_pipedrive__activity_types` | one activity type | `activity_type` (source `type`) unique | `active` to boolean `is_active`; `type` is Pipedrive's key string |
 | `stg_pipedrive__stages` | one stage | `stage_id` unique | name casing: "Qualified lead" here, "Qualified Lead" in `fields`; the report uses the names from the task |
 | `stg_pipedrive__field_options` | one option of a list field | (`field_key`, `option_id`) | unnest `fields.field_value_options` (JSONB): stage labels and lost-reason options |
@@ -28,7 +28,7 @@ The entities, keys and relationships the models implement are in [[logical_model
 | `int_pipedrive__deals` | one row per deal | `deal_id` unique, not null | `created_at` = earliest `add_time`; first and last owner; latest `lost_reason`; `has_two_lifecycles` when more than one `add_time`; one row for each of the 1,995 deals |
 | `int_pipedrive__deal_stage_entries` | one deal at one stage (recorded) | (`deal_id`, `stage_id`) | `entered_at` = `min(change_time)` of the stage events; `is_inferred` = false; use `min() group by`, no self joins |
 | `int_pipedrive__deal_stage_entries_backfilled` | one deal at one stage reached (recorded and inferred) | (`deal_id`, `stage_id`) | stages 1 to the highest stage the deal reached; inferred rows get `entered_at` = earliest recorded entry of a higher stage and `is_inferred` = true. Controlled by var `funnel_backfill_skipped_stages` (default true, decided) |
-| `int_pipedrive__sales_calls` | one activity | `activity_key` | only `meeting` (Sales Call 1) and `sc_2` (Sales Call 2); funnel step from the step mapping; `is_done`, `due_at`, `deal_id` |
+| `int_pipedrive__sales_calls` | one activity | `activity_id` | only `meeting` (Sales Call 1) and `sc_2` (Sales Call 2); funnel step from the step mapping; `is_done`, `due_at`, `deal_id` |
 
 ## Marts (table)
 
@@ -36,7 +36,7 @@ The entities, keys and relationships the models implement are in [[logical_model
 |---|---|---|---|
 | `dim_funnel_step` (seed `funnel_steps.csv` plus model) | one funnel step | `funnel_step` | 11 rows: 1, 2, 2.1, 3, 3.1, 4 to 9. Columns: `funnel_step` (text), `kpi_name`, `source_type` (`stage` or `activity`), `stage_id` or `activity_type`, `sort_order`. Step names are the task's: Lead Generation, Qualified Lead, Sales Call 1, Needs Assessment, Sales Call 2, Proposal/Quote Preparation, Negotiation, Closing, Implementation/Onboarding, Follow-up/Customer Success, Renewal/Expansion |
 | `fct_deal_stage_entries` | one deal at one stage | (`deal_id`, `stage_id`) | the chosen int model plus keys to `dim_funnel_step` (optional; the report may read the intermediate directly) |
-| `fct_sales_calls` | one activity | `activity_key` | optional wrapper over the int model |
+| `fct_sales_calls` | one activity | `activity_id` | optional wrapper over the int model |
 | `rep_sales_funnel_monthly` | one funnel step in one month | (`month`, `funnel_step`) unique | contract enforced; columns exactly `month` (date, first day of the month), `kpi_name`, `funnel_step`, `deals_count` (integer) |
 
 ## Metric definitions
