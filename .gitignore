@@ -17,3 +17,6 @@ analyses/test.sql
 analyses/07_data_quality_findings.sql
 analyses/08_business_questions.sql
 analyses/09_review_later.sql
+
+# Elementary report output
+edr_target/

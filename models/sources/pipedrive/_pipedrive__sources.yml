@@ -1,0 +1,521 @@
+version: 2
+
+# Raw layer: tests and Elementary monitors on the six raw Pipedrive tables.
+# Every test here warns (folder config in dbt_project.yml, tag dq_raw): it measures the source and never blocks the build.
+# Test names start with the issue id of vault/project/cleansing_proposals.md; the description holds the count measured on 2026-10-23.
+# Tags: dq_known_issue = a known defect, its failed rows are the size of the issue; dq_check = should pass; dq_monitor = Elementary anomaly or schema monitor.
+# Keys and relationships from the exploratory analysis (vault/project/logical_model.md) are in meta: table_kind, grain, primary_key,
+# foreign_keys on each table, key and references on each key column. Every primary key has unique + not_null, every foreign key a
+# relationships test; keys inside deal_changes.new_value are tested in tests/data_quality/fk_*.sql, because they need a cast.
+# Column descriptions come from vault/project/data_dictionary.md; the measured facts from analyses/01_ to 06_ and 00_data_quality_issues.sql.
+# Column types are Snowflake's own names (NUMBER, TEXT, TIMESTAMP_NTZ, BOOLEAN, VARIANT): the schema baselines compare them with the information schema.
+# Anomaly monitors run on weekly buckets from 2024-01; locally the run date is set inside the data (scripts/dq_report.sh).
+
+sources:
+  - name: pipedrive
+    description: "Pipedrive CRM export of Enpal's sales pipeline: six tables loaded once from CSV (raw_data/) into ENPAL_RAW.PIPEDRIVE. No deals table: deals are derived from deal_changes."
+    database: "{{ var('raw_location')[target.name].database }}"  # test: ENPAL_TEST (clones), prod: ENPAL_RAW (vars in dbt_project.yml)
+    schema: "{{ var('raw_location')[target.name].schema }}"      # test: SRC, prod: PIPEDRIVE
+    tables:
+      - name: deal_changes
+        description: >
+          Event log of deal field changes, the only source of deals: one row per change of one field of one deal.
+          Four field keys: add_time (creation), user_id (owner), stage_id (stage entered) and lost_reason.
+          1,995 deals with 4 to 17 events each; every deal has a creation, an owner and a stage event, and starts at stage 1.
+          The history is generated (D5: changes at the creation clock time) and stages are often skipped (D1).
+        config:
+          meta:
+            table_kind: fact
+            grain: "deal_id, changed_field_key, change_time"
+            primary_key: [deal_id, changed_field_key, change_time]
+            foreign_keys:
+              - "changed_field_key -> fields.field_key"
+              - "new_value (stage_id) -> stages.stage_id"
+              - "new_value (user_id) -> users.id"
+              - "new_value (lost_reason) -> fields.field_value_options.id of lost_reason"
+            row_count: 15406
+            covers: "2024-01-01 to 2025-03-11"
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              name: pk_grain__deal_changes
+              description: "Primary key: one row per deal, field key and change time. 0 duplicates on 2026-10-23. Rows here mean the grain changed and every per-key model fans out."
+              arguments: { combination_of_columns: [deal_id, changed_field_key, change_time] }
+              config:
+                tags: [dq_check, dq_duplicates]
+                meta: { owner: data_team, quality_dimension: uniqueness }
+          - dbt_utils.unique_combination_of_columns:
+              name: dup1_full_row_duplicates__deal_changes
+              description: "DUP-1. Full-row duplicates: 0 on 2026-10-23. Rows here mean a double load."
+              arguments: { combination_of_columns: [deal_id, changed_field_key, change_time, new_value] }
+              config:
+                tags: [dq_check, dq_duplicates]
+                meta: { issue: DUP-1, owner: data_team, quality_dimension: uniqueness }
+          - dbt_utils.unique_combination_of_columns:
+              name: d3_two_creations_per_deal
+              description: "D3 / DUP-2. Deals with two creation events (two lifecycles under one deal_id): 5 on 2026-10-23."
+              arguments: { combination_of_columns: [deal_id] }
+              config:
+                where: "changed_field_key = 'add_time'"
+                tags: [dq_known_issue, dq_duplicates]
+                meta: { issue: D3, owner: crm_admin, quality_dimension: uniqueness }
+          - dbt_utils.unique_combination_of_columns:
+              name: d3_two_lost_reasons_per_deal
+              description: "D3 / DUP-2. Deals with two lost reasons, all among the two-lifecycle deals: 5 on 2026-10-23."
+              arguments: { combination_of_columns: [deal_id] }
+              config:
+                where: "changed_field_key = 'lost_reason'"
+                tags: [dq_known_issue, dq_duplicates]
+                meta: { issue: D3, owner: crm_admin, quality_dimension: uniqueness }
+          - elementary.schema_changes_from_baseline:
+              name: schema_baseline__deal_changes
+              description: "Columns and types differ from the declared ones: the export changed."
+              config: &schema_monitor
+                severity: error
+                tags: [dq_monitor, dq_schema]
+                meta: { issue: schema, owner: data_team, quality_dimension: validity }
+          - elementary.volume_anomalies:
+              name: volume_weekly__deal_changes
+              description: "Weekly count of deal changes far from the weeks before: a double, partial or stopped load."
+              arguments:
+                timestamp_column: change_time
+                time_bucket: &weekly { period: week, count: 1 }
+                training_period: &training { period: week, count: 62 }
+                detection_period: &detection { period: week, count: 4 }
+              config: &volume_monitor
+                tags: [dq_monitor, dq_volume]
+                meta: { issue: volume, owner: data_team, quality_dimension: completeness }
+          - elementary.dimension_anomalies:
+              name: mix_weekly__deal_changes_field_key
+              description: "Weekly count per event key (add_time, user_id, stage_id, lost_reason) far from its own history: an event type stops or floods."
+              arguments:
+                dimensions: [changed_field_key]
+                timestamp_column: change_time
+                time_bucket: *weekly
+                training_period: *training
+                detection_period: *detection
+              config:
+                tags: [dq_monitor, dq_mix]
+                meta: { issue: field_keys, owner: data_team, quality_dimension: completeness }
+        columns:
+          - name: deal_id
+            description: "The deal the change belongs to; there is no deals table. 5 deal_ids carry two lifecycles (D3), each with its own creation, owners, stage path and lost reason."
+            data_type: NUMBER
+            config:
+              meta: { key: primary }
+            data_tests: &not_null_check
+              - not_null:
+                  config:
+                    tags: [dq_check]
+                    meta: { owner: data_team }
+          - name: change_time
+            description: "When the change happened (changelog time). Generated: 99.8% of changes fall on the deal's creation clock time (D5), so time between stages says nothing about sales speed."
+            data_type: TIMESTAMP_NTZ
+            config:
+              meta: { key: primary }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - dbt_utils.accepted_range:
+                  name: change_time_plausible_range__deal_changes
+                  description: "Changes between 2024-01-01 and 2025-12-31 (measured: 2024-01-01 to 2025-03-11). Rows here mean a wrong timestamp or a new export period."
+                  arguments: { min_value: "'2024-01-01'", max_value: "'2025-12-31'" }
+                  config:
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: validity }
+          - name: changed_field_key
+            description: "Key of the field that changed; decides how new_value is typed (D6). Every key is a row of fields."
+            data_type: TEXT
+            config:
+              meta: { key: primary, references: fields.field_key }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - accepted_values:
+                  name: d6_field_key_domain__deal_changes
+                  description: "D6. new_value is typed by changed_field_key; a new key would arrive untyped. 0 on 2026-10-23."
+                  arguments: { values: [add_time, user_id, stage_id, lost_reason] }
+                  config:
+                    tags: [dq_check, dq_types]
+                    meta: { issue: D6, owner: data_team, quality_dimension: validity }
+              - relationships:
+                  name: fk_field_key_in_fields__deal_changes
+                  description: "Foreign key to fields.field_key: 0 orphans on 2026-10-23."
+                  arguments:
+                    to: source('pipedrive', 'fields')
+                    field: field_key
+                  config:
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: consistency }
+          - name: new_value
+            description: >
+              Value after the change, as text whatever the key (D6): a timestamp equal to change_time for add_time,
+              a user id for user_id, a stage id 1 to 9 for stage_id, a lost-reason option id 1 to 5 for lost_reason.
+              No previous value and no author in the export. Filter on the key before casting.
+            data_type: TEXT
+            config:
+              meta: { key: foreign, references: "stages.stage_id (stage_id), users.id (user_id), fields.field_value_options (lost_reason)" }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - accepted_values:
+                  name: d6_stage_id_domain__deal_changes
+                  description: "D6. Stage ids 1 to 9: 0 outside on 2026-10-23."
+                  arguments: { values: ['1', '2', '3', '4', '5', '6', '7', '8', '9'] }
+                  config:
+                    where: "changed_field_key = 'stage_id'"
+                    tags: [dq_check, dq_types]
+                    meta: { issue: D6, owner: data_team, quality_dimension: validity }
+              - accepted_values:
+                  name: d6_lost_reason_domain__deal_changes
+                  description: "D6. Lost reasons 1 to 5 (the options of fields.lost_reason): 0 outside on 2026-10-23."
+                  arguments: { values: ['1', '2', '3', '4', '5'] }
+                  config:
+                    where: "changed_field_key = 'lost_reason'"
+                    tags: [dq_check, dq_types]
+                    meta: { issue: D6, owner: data_team, quality_dimension: validity }
+
+      - name: activity
+        description: >
+          One scheduled activity (call) of a sales rep; feeds steps 2.1 (Sales Call 1) and 3.1 (Sales Call 2).
+          Only 8 of 4,579 activities link to a deal in deal_changes (A2), so calls are counted by due month, not per funnel deal.
+          About half of every type is done (A4). Ends on 2024-09-13, six months before deal_changes (X1).
+        config:
+          meta:
+            table_kind: fact
+            grain: "activity_id (decided 2026-10-23; 11 ids repeat, A1)"
+            primary_key: [activity_id]
+            foreign_keys:
+              - "type -> activity_types.type"
+              - "assigned_to_user -> users.id"
+              - "deal_id -> deal_changes.deal_id (intended; 8 of 4,579 match, A2)"
+            row_count: 4579
+            covers: "2024-01-01 to 2024-09-13"
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              name: dup1_full_row_duplicates__activity
+              description: "DUP-1. Full-row duplicates: 0 on 2026-10-23. Rows here mean a double load."
+              arguments: { combination_of_columns: [activity_id, type, assigned_to_user, deal_id, done, due_to] }
+              config:
+                tags: [dq_check, dq_duplicates]
+                meta: { issue: DUP-1, owner: data_team, quality_dimension: uniqueness }
+          - elementary.schema_changes_from_baseline:
+              name: schema_baseline__activity
+              description: "Columns and types differ from the declared ones: the export changed."
+              config: *schema_monitor
+          - elementary.volume_anomalies:
+              name: x1_volume_weekly__activity
+              description: "X1 and volume. Weekly count of activities; an empty week fails (fail_on_zero). Known: no activities after 2024-09-13."
+              arguments:
+                timestamp_column: due_to
+                time_bucket: *weekly
+                training_period: *training
+                detection_period: *detection
+                fail_on_zero: true
+              config:
+                tags: [dq_monitor, dq_volume, dq_export]
+                meta: { issue: X1, owner: crm_admin, quality_dimension: completeness }
+          - elementary.freshness_anomalies:
+              name: x1_freshness_weekly__activity
+              description: "X1. Longest gap without a new activity per week, against the weeks before. Known: no activities after 2024-09-13."
+              arguments:
+                timestamp_column: due_to
+                time_bucket: *weekly
+                training_period: *training
+                detection_period: *detection
+              config:
+                tags: [dq_monitor, dq_freshness, dq_export]
+                meta: { issue: X1, owner: crm_admin, quality_dimension: freshness }
+          - elementary.dimension_anomalies:
+              name: mix_weekly__activity_type
+              description: "Weekly count per activity type far from its own history: a call type stops or floods (steps 2.1, 3.1)."
+              arguments:
+                dimensions: [type]
+                timestamp_column: due_to
+                time_bucket: *weekly
+                training_period: *training
+                detection_period: *detection
+              config:
+                tags: [dq_monitor, dq_mix]
+                meta: { issue: activity_types, owner: sales_ops, quality_dimension: completeness }
+          - elementary.dimension_anomalies:
+              name: a4_done_weekly__activity_type
+              description: "A4. Weekly count of done activities per type far from its own history. Known: about 50% done for every type."
+              arguments:
+                dimensions: [type]
+                where_expression: "done"
+                timestamp_column: due_to
+                time_bucket: *weekly
+                training_period: *training
+                detection_period: *detection
+              config:
+                tags: [dq_monitor, dq_process]
+                meta: { issue: A4, owner: sales_ops, quality_dimension: consistency }
+        columns:
+          - name: activity_id
+            description: "Primary key (decided 2026-10-23). 11 ids are shared by two unrelated activities (different user, deal and date; A1); staging keeps the latest due_to per id."
+            data_type: NUMBER
+            config:
+              meta: { key: primary, issue: A1 }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - unique:
+                  name: a1_repeated_activity_id
+                  description: "A1 / DUP-3. activity_id repeated: 11 ids (22 rows) on 2026-10-23. Staging keeps the latest due_to per id."
+                  config:
+                    tags: [dq_known_issue, dq_duplicates]
+                    meta: { issue: A1, owner: crm_admin, quality_dimension: uniqueness }
+          - name: type
+            description: "The activity type's key string (activity_types.type, not its id): meeting is Sales Call 1 (step 2.1), sc_2 is Sales Call 2 (step 3.1)."
+            data_type: TEXT
+            config:
+              meta: { key: foreign, references: activity_types.type }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - relationships:
+                  name: type_in_activity_types__activity
+                  description: "Foreign key to activity_types.type: 0 orphans on 2026-10-23."
+                  arguments:
+                    to: source('pipedrive', 'activity_types')
+                    field: type
+                  config:
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: consistency }
+          - name: assigned_to_user
+            description: "The user who owns the activity (owner_id in the Pipedrive API). 1,650 users with 1 to 11 activities each."
+            data_type: NUMBER
+            config:
+              meta: { key: foreign, references: users.id }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - relationships:
+                  name: assigned_user_in_users__activity
+                  description: "Foreign key to users.id: 0 orphans on 2026-10-23."
+                  arguments:
+                    to: source('pipedrive', 'users')
+                    field: id
+                  config:
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: consistency }
+          - name: deal_id
+            description: "The deal the activity is planned against. Intended foreign key to deal_changes, but only 8 of 4,579 match (A2): the two exports come from different deal sets."
+            data_type: NUMBER
+            config:
+              meta: { key: foreign, references: deal_changes.deal_id, issue: A2 }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - relationships:
+                  name: a2_activity_deal_not_in_deal_changes
+                  description: "A2. Activities whose deal is not in the deal history: 4,571 of 4,579 on 2026-10-23 (8 match)."
+                  arguments:
+                    to: source('pipedrive', 'deal_changes')
+                    field: deal_id
+                  config:
+                    tags: [dq_known_issue, dq_process]
+                    meta: { issue: A2, owner: crm_admin, quality_dimension: consistency }
+          - name: done
+            description: "Whether the activity was marked done. 49.6 to 50.6% for every type although all are due before the export ends (A4); counting done calls only halves steps 2.1 and 3.1 (open decision)."
+            data_type: BOOLEAN
+            config:
+              meta: { issue: A4 }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+          - name: due_to
+            description: "Planned date and time (the API's due_date and due_time merged). The month of the call in the report. Last value 2024-09-13 (X1)."
+            data_type: TIMESTAMP_NTZ
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - dbt_utils.accepted_range:
+                  name: due_to_plausible_range__activity
+                  description: "Due dates between 2024-01-01 and 2025-12-31 (measured: 2024-01-01 to 2024-09-13)."
+                  arguments: { min_value: "'2024-01-01'", max_value: "'2025-12-31'" }
+                  config:
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: validity }
+
+      - name: activity_types
+        description: >
+          Dictionary of the 4 activity types. Activities reference a type by its key string (type), which is 1 to 1 with id.
+          Follow Up Call is inactive but has 1,133 activities over the whole period (T1): a deactivated type keeps its past activities.
+        config:
+          meta:
+            table_kind: dictionary
+            grain: "one row per activity type"
+            primary_key: [id]
+            natural_key: [type]
+            row_count: 4
+        data_tests:
+          - elementary.schema_changes_from_baseline:
+              name: schema_baseline__activity_types
+              description: "Columns and types differ from the declared ones: the export changed."
+              config: *schema_monitor
+        columns:
+          - name: id
+            description: "Surrogate id of the type; nothing in the export references it."
+            data_type: NUMBER
+            config:
+              meta: { key: primary }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - unique:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+          - name: name
+            description: "Display name: Sales Call 1, Sales Call 2, Follow Up Call, After Close Call. The task's step names 2.1 and 3.1 match the first two."
+            data_type: TEXT
+          - name: active
+            description: "'Yes' / 'No' as text (T1): whether the type can be chosen for new activities. Staging casts it to is_active."
+            data_type: TEXT
+            config:
+              meta: { issue: T1 }
+            data_tests:
+              - accepted_values:
+                  name: t1_active_flag_domain__activity_types
+                  description: "T1. active holds 'Yes' / 'No' as text; staging casts it to is_active. 0 outside on 2026-10-23."
+                  arguments: { values: ['Yes', 'No'] }
+                  config:
+                    tags: [dq_check, dq_types]
+                    meta: { issue: T1, owner: data_team, quality_dimension: validity }
+          - name: type
+            description: "Key string referenced by activity.type; generated from the name at creation and never changed, so it is the join key."
+            data_type: TEXT
+            config:
+              meta: { key: natural }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - unique:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+
+      - name: stages
+        description: >
+          Dictionary of the 9 pipeline stages, steps 1 to 9 of the funnel. The funnel order is the order of stage_id
+          (the export has no order_nr). One name is spelled differently from its label in fields (S1); the report uses the task's step names.
+        config:
+          meta:
+            table_kind: dictionary
+            grain: "one row per stage"
+            primary_key: [stage_id]
+            row_count: 9
+        data_tests:
+          - elementary.schema_changes_from_baseline:
+              name: schema_baseline__stages
+              description: "Columns and types differ from the declared ones: the export changed."
+              config: *schema_monitor
+        columns:
+          - name: stage_id
+            description: "Stage id 1 to 9 = funnel step 1 to 9; referenced as text by deal_changes.new_value where the key is stage_id."
+            data_type: NUMBER
+            config:
+              meta: { key: primary }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - unique:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+          - name: stage_name
+            description: "Stage name as set by the CRM admin; stage 2 reads 'Qualified lead' here and 'Qualified Lead' in fields (S1)."
+            data_type: TEXT
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - unique:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+
+      - name: fields
+        description: >
+          Metadata of the 4 deal fields that appear in deal_changes. field_value_options holds the id-label pairs of the
+          single-option fields: the 9 stage labels and the 5 lost reasons (Customer Not Ready, Pricing Issues,
+          Unreachable Customer, Product Mismatch, Duplicate Entry).
+        config:
+          meta:
+            table_kind: dictionary
+            grain: "one row per deal field"
+            primary_key: [id]
+            natural_key: [field_key]
+            row_count: 4
+        data_tests:
+          - elementary.schema_changes_from_baseline:
+              name: schema_baseline__fields
+              description: "Columns and types differ from the declared ones: the export changed."
+              config: *schema_monitor
+        columns:
+          - name: id
+            description: "The field's id in the export (3, 10, 13, 23); nothing references it."
+            data_type: NUMBER
+            config:
+              meta: { key: primary }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - unique:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+          - name: field_key
+            description: "The field's key as used in deal_changes.changed_field_key: add_time, user_id, stage_id, lost_reason."
+            data_type: TEXT
+            config:
+              meta: { key: natural }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - unique:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+          - name: name
+            description: "Display name, for example 'Deal created' for add_time and 'Owner' for user_id."
+            data_type: TEXT
+          - name: field_value_options
+            description: "JSON array of {id, label} for stage_id and lost_reason, empty for the others. Ids are strings in the JSON; unpack with lateral flatten."
+            data_type: VARIANT
+
+      - name: users
+        description: >
+          Current state of 1,787 CRM users (no history): deal owners and activity owners. 1,347 distinct owners for 1,995 deals,
+          at most 6 deals each (U2): not the shape of a real sales team, so no per-rep KPIs. Ends on 2024-10-28 (X1).
+        config:
+          meta:
+            table_kind: dictionary
+            grain: "one row per user (current state)"
+            primary_key: [id]
+            row_count: 1787
+            covers: "modified 2024-01-02 to 2024-10-28"
+        data_tests:
+          - elementary.schema_changes_from_baseline:
+              name: schema_baseline__users
+              description: "Columns and types differ from the declared ones: the export changed."
+              config: *schema_monitor
+        columns:
+          - name: id
+            description: "User id; referenced by activity.assigned_to_user and by deal_changes.new_value where the key is user_id."
+            data_type: NUMBER
+            config:
+              meta: { key: primary }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - unique:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+          - name: name
+            description: "Full name; 21 names are shared by 42 different users, so it does not identify a person."
+            data_type: TEXT
+          - name: email
+            description: "Email; 4 emails are shared by two users with different names (U1). Never join on email."
+            data_type: TEXT
+            config:
+              meta: { issue: U1 }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - unique:
+                  name: u1_shared_email__users
+                  description: "U1 / DUP-5. Emails shared by two users with different names: 4 on 2026-10-23. Never join on email."
+                  config:
+                    tags: [dq_known_issue, dq_duplicates]
+                    meta: { issue: U1, owner: crm_admin, quality_dimension: uniqueness }
+          - name: modified
+            description: "Last change of the user record; the latest is 2024-10-28 (X1)."
+            data_type: TIMESTAMP_NTZ
