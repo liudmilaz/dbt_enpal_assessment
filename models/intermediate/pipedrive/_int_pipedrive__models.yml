@@ -13,11 +13,13 @@ models:
       meta: { grain: deal_id, primary_key: [deal_id] }
     columns:
       - name: deal_id
+        description: "The sales opportunity; the deal's id in the CRM, taken from its change history."
         data_tests: [unique, not_null]
       - name: created_at
         description: "First creation time; for a two-lifecycle deal (D3) the first of two."
         data_tests: [not_null]
       - name: first_owner_user_id
+        description: "Owner the deal was first assigned to (lead routing); every deal gets one before it enters stage 1."
         data_tests:
           - not_null
           - relationships:
@@ -49,11 +51,13 @@ models:
           arguments: { combination_of_columns: [deal_id, stage_id] }
     columns:
       - name: stage_id
+        description: "The pipeline stage the deal entered, 1 (Lead Generation) to 9 (Renewal/Expansion)."
         data_tests:
           - not_null
           - relationships:
               arguments: { to: ref('stg_pipedrive__stages'), field: stage_id }
       - name: entered_at
+        description: "First recorded entry of this deal into this stage; a later re-entry is ignored."
         data_tests: [not_null]
 
   - name: int_pipedrive__deal_stage_entries_backfilled
@@ -68,6 +72,7 @@ models:
           arguments: { combination_of_columns: [deal_id, stage_id] }
     columns:
       - name: stage_id
+        description: "The pipeline stage the deal reached, recorded or inferred: 1 (Lead Generation) to 9 (Renewal/Expansion)."
         data_tests: [not_null]
       - name: entered_at
         description: "Recorded entry, or for an inferred stage the first recorded entry of a higher stage."
@@ -84,12 +89,15 @@ models:
       meta: { grain: activity_id, primary_key: [activity_id] }
     columns:
       - name: activity_id
+        description: "The call's id in the CRM."
         data_tests: [unique, not_null]
       - name: funnel_step
+        description: "The funnel step the call is: '2.1' for Sales Call 1 (meeting), '3.1' for Sales Call 2 (sc_2)."
         data_tests:
           - accepted_values:
               arguments: { values: ['2.1', '3.1'] }
       - name: is_done
+        description: "Whether the call was marked done, i.e. held; the report counts done calls only (var calls_done_only)."
         data_tests: [not_null]
 
 unit_tests:

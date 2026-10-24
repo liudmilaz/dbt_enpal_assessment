@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_check', 'dq_process'],
-    meta={'owner': 'data_team', 'quality_dimension': 'uniqueness', 'description': 'No deal has two stage moves at the same timestamp. Rows here make the stage order, and so the backfill, ambiguous.'}
+    meta={'owner': 'data_team', 'quality_dimension': 'uniqueness', 'description': 'Found (EDA 07 #7): no deal has two stage moves at the same timestamp. Improve: none. Handled: the backfill orders stage entries by time and relies on it.'}
 ) }}
 
 -- stage moves per deal and timestamp

@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_check', 'dq_process'],
-    meta={'owner': 'data_team', 'quality_dimension': 'consistency', 'description': 'Every deal enters the funnel at stage 1 (Lead Generation). Step 1 relies on it.'}
+    meta={'owner': 'data_team', 'quality_dimension': 'consistency', 'description': 'Found (EDA 07 #17): every deal enters the funnel at stage 1 (Lead Generation). Improve: none. Handled: step 1 relies on it; int_pipedrive__deals tests first_stage_id = 1 at error.'}
 ) }}
 
 -- stage moves only, numbered per deal in time order

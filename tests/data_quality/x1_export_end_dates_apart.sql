@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_export'],
-    meta={'issue': 'X1', 'owner': 'crm_admin', 'quality_dimension': 'freshness', 'description': 'X1. Tables ending more than 31 days before deal_changes: the exports were taken at different times, so the report has months without calls.'}
+    meta={'issue': 'X1', 'owner': 'crm_admin', 'quality_dimension': 'freshness', 'description': 'Found (EDA 00 X1, 07 #24): the tables were exported at different times and end on different dates. Improve (CRM admin): one cut-off for all exports. Handled: the report keeps the late months, zero-filled for the call steps.'}
 ) }}
 
 -- last date per table

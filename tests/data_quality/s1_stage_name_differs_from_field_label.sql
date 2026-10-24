@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_types'],
-    meta={'issue': 'S1', 'owner': 'crm_admin', 'quality_dimension': 'validity', 'description': 'S1. Stage name in stages differs from its label in fields (for example Qualified lead vs Qualified Lead). The report uses the task step names.'}
+    meta={'issue': 'S1', 'owner': 'crm_admin', 'quality_dimension': 'validity', 'description': 'Found (EDA 05 §6a, 07 #10): a stage name is spelled differently in stages and in the field labels (Qualified lead vs Qualified Lead). Improve (CRM admin): one spelling. Handled: the report takes the task\'s step names from the seed funnel_steps.'}
 ) }}
 
 -- the stage labels, unpacked from the stage field's options (JSON array of {id, label})

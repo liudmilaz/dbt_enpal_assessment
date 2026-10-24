@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_duplicates'],
-    meta={'issue': 'D3', 'owner': 'crm_admin', 'quality_dimension': 'consistency', 'description': 'D3 / DUP-2. Stage moves that go backward or repeat the same stage, expected only in the two-lifecycle deals. The funnel counts a stage once, by its first entry.'}
+    meta={'issue': 'D3', 'owner': 'crm_admin', 'quality_dimension': 'consistency', 'description': 'Found (EDA 01 §6a, 07 #21-22): backward or repeated stage moves, expected only in the two-lifecycle deals. Improve (CRM admin): as D3. Handled: int_pipedrive__deal_stage_entries keeps the first entry per stage, so a stage counts once.'}
 ) }}
 
 -- stage moves only, with the stage id typed after the filter

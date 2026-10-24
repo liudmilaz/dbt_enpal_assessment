@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_process'],
-    meta={'issue': 'D4', 'owner': 'crm_admin', 'quality_dimension': 'accuracy', 'description': 'D4. Deals lost as Unreachable Customer (reason 3) that reached Needs Assessment or later, so the customer was reached. The lost reason does not describe where a deal stopped.'}
+    meta={'issue': 'D4', 'owner': 'crm_admin', 'quality_dimension': 'accuracy', 'description': 'Found (EDA 07 #28, 08 B5b): deals lost as Unreachable Customer reached Needs Assessment or later, so the customer was reached. Improve (sales ops): the reason should say where the deal stopped. Handled: as D4, the reason is not used for the funnel.'}
 ) }}
 
 -- deals whose lost reason is Unreachable Customer

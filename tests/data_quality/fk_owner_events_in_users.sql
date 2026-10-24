@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_check'],
-    meta={'owner': 'data_team', 'quality_dimension': 'consistency', 'description': 'Foreign key deal_changes.new_value (key user_id) to users.id; users can end earlier than deal_changes (X1). Rows here mean owners missing from users.'}
+    meta={'owner': 'data_team', 'quality_dimension': 'consistency', 'description': 'Found (EDA 07 #12): every owner id exists in users, although users can end earlier (X1). Improve: none. Handled: staging tests owner_user_id against stg_pipedrive__users at error.'}
 ) }}
 
 -- owner changes only, with the user id typed after the filter

@@ -1,9 +1,9 @@
 version: 2
 
-# Staging: one view per raw table, rename / cast / deduplicate only (vault/project/model_plan.md).
+# Staging: one view per raw table, rename / cast only (vault/project/model_plan.md).
 # Tests here are promises of the pipeline: severity error, tag dq_staging (dbt_project.yml).
 # Known issues of the raw data stay on the sources (models/sources/pipedrive/) and are not repeated here;
-# what staging cleans (A1, DUP-1, D6, T1) is tested here as fixed.
+# what staging cleans (D6, T1) is tested here as fixed.
 # Descriptions hold the business meaning (vault/project/crm_field_definitions.md, business_context.md);
 # the stage and activity-type meanings are an interpretation to confirm with Enpal. Cleaning and data quality
 # notes are in meta: cleaning, caveats (issue ids of vault/project/cleansing_proposals.md).
@@ -25,7 +25,7 @@ models:
         grain: "deal_change_key (= deal_id, changed_field_key, change_time)"
         primary_key: [deal_change_key]
         logical_entity: DEAL_EVENT
-        cleaning: "Full-row duplicates removed (DUP-1); new_value split into one typed column per key (D6)."
+        cleaning: "new_value split into one typed column per key (D6)."
         caveats:
           - "D5: change times are generated (creation clock time + whole days); use dates, not durations."
           - "D3: a deal_id can hold two lifecycles, consistent with a duplicate lead merged into one deal."
@@ -128,7 +128,7 @@ models:
         grain: "activity_id"
         primary_key: [activity_id]
         logical_entity: ACTIVITY
-        cleaning: "An activity_id repeated by unrelated activities (A1) keeps the row with the latest due_at (decided 2026-10-23)."
+        cleaning: "Rename and retype only; no deduplication."
         caveats:
           - "A2: activities rarely match a deal of the deal history, so calls are counted by due month, not per funnel deal."
           - "A4: part of the past activities is never marked done."

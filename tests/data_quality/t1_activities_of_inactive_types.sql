@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_process'],
-    meta={'issue': 'T1', 'owner': 'crm_admin', 'quality_dimension': 'validity', 'description': 'T1. Activities of a type marked inactive (for example Follow Up Call). A deactivated type keeps its past activities; new ones should not appear.'}
+    meta={'issue': 'T1', 'owner': 'crm_admin', 'quality_dimension': 'validity', 'description': 'Found (EDA 00 T1): a type marked inactive (Follow Up Call) still holds activities. Improve (CRM admin): confirm the type is retired. Handled: Follow Up Call is not a funnel step; staging carries is_active.'}
 ) }}
 
 -- types switched off in the CRM

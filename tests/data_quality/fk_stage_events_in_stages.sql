@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_check'],
-    meta={'owner': 'data_team', 'quality_dimension': 'consistency', 'description': 'Foreign key deal_changes.new_value (key stage_id) to stages.stage_id. Rows here mean a stage the funnel does not know.'}
+    meta={'owner': 'data_team', 'quality_dimension': 'consistency', 'description': 'Found (EDA 07 #13): every stage id exists in stages. Improve: none. Handled: staging tests stage_id against stg_pipedrive__stages at error.'}
 ) }}
 
 -- stage moves only, with the stage id typed after the filter

@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_process'],
-    meta={'issue': 'U2', 'owner': 'crm_admin', 'quality_dimension': 'consistency', 'description': 'U2. Users that own no activity and no deal. Not an error (users is the full user list), but part of the owner shape that does not look like a sales team.'}
+    meta={'issue': 'U2', 'owner': 'crm_admin', 'quality_dimension': 'consistency', 'description': 'Found (EDA 04 §6a, 07 #25, 00 U2): users with no deal and no activity, and many owners with very few deals: not the shape of a sales team. Improve (CRM admin): confirm the user export. Handled: no per-rep KPIs are built.'}
 ) }}
 
 -- users referenced as activity owner

@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_duplicates'],
-    meta={'issue': 'D3', 'owner': 'crm_admin', 'quality_dimension': 'consistency', 'description': 'D3 / DUP-2. Deals whose lost reason is dated before their last stage move, expected only among the two-lifecycle deals (the first lifecycle was lost, the second went on).'}
+    meta={'issue': 'D3', 'owner': 'crm_admin', 'quality_dimension': 'consistency', 'description': 'Found (EDA 08 B5a, 00 D3): in the two-lifecycle deals the first lifecycle was lost and the second went on. Improve (CRM admin): as D3. Handled: the lost reason is not used for the funnel; int_pipedrive__deals keeps the last one.'}
 ) }}
 
 -- the last stage move per deal

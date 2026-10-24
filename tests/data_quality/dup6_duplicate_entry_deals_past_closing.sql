@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_duplicates'],
-    meta={'issue': 'DUP-6', 'owner': 'sales_ops', 'quality_dimension': 'accuracy', 'description': 'DUP-6. Deals lost as Duplicate Entry (reason 5) that still reached Closing or later. Duplicates are kept as deals, not merged; whether to drop them from the funnel is open.'}
+    meta={'issue': 'DUP-6', 'owner': 'sales_ops', 'quality_dimension': 'accuracy', 'description': 'Found (EDA 07 #26-27, 08 B5b): deals lost as Duplicate Entry still reached Closing or later, so duplicates are not caught early. Improve (sales ops): merge duplicate leads before qualification. Handled: duplicates are kept as deals; whether to drop them from the funnel is open (DUP-6).'}
 ) }}
 
 -- deals whose lost reason is Duplicate Entry

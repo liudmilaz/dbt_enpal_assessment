@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_process'],
-    meta={'issue': 'D1', 'owner': 'sales_ops', 'quality_dimension': 'completeness', 'description': 'D1. Deals that jump over at least one stage. The intermediate layer backfills the skipped stages with is_inferred.'}
+    meta={'issue': 'D1', 'owner': 'sales_ops', 'quality_dimension': 'completeness', 'description': 'Found (EDA 00 D1, 01 §6a): deals jump over stages; reps move them several stages at once. Improve (sales ops): move deals stage by stage. Handled: int_pipedrive__deal_stage_entries_backfilled counts a skipped stage as reached (is_inferred), dated at the next recorded entry (var funnel_backfill_skipped_stages).'}
 ) }}
 
 -- stage moves only, with the stage id typed after the filter

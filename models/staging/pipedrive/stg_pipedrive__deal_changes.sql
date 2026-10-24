@@ -10,22 +10,6 @@ with source as (
         change_time,
         new_value
     from {{ source('pipedrive', 'deal_changes') }}
-),
-
--- remove full-row duplicates only (DUP-1, decided 2026-10-23); two different values for one
--- key are a conflict, not a duplicate: they stay and fail the unique test on deal_change_key
-deduplicated as (
-    select
-        deal_change_key,
-        deal_id,
-        changed_field_key,
-        change_time,
-        new_value
-    from source
-    qualify row_number() over (
-        partition by deal_id, changed_field_key, change_time, new_value
-        order by change_time
-    ) = 1
 )
 
 -- typed value per key: a cast runs only on the rows of its own key
@@ -39,4 +23,4 @@ select
     case when changed_field_key = 'user_id' then cast(new_value as integer) end as owner_user_id,
     case when changed_field_key = 'stage_id' then cast(new_value as integer) end as stage_id,
     case when changed_field_key = 'lost_reason' then cast(new_value as integer) end as lost_reason_id
-from deduplicated
+from source

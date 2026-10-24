@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_process'],
-    meta={'issue': 'D5', 'owner': 'crm_admin', 'quality_dimension': 'accuracy', 'description': 'D5. Deal changes at the exact clock time of the deal creation (generated history). A falling count means real timestamps arrive.'}
+    meta={'issue': 'D5', 'owner': 'crm_admin', 'quality_dimension': 'accuracy', 'description': 'Found (EDA 00 D5): deal changes fall on the deal\'s creation clock time, so the history looks generated. Improve (CRM admin): real change timestamps. Handled: the report works with months; fct_deals.days_lead_to_closing is an illustration only. A falling count means real timestamps arrive.'}
 ) }}
 
 -- each deal's first creation time

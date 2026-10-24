@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_process'],
-    meta={'issue': 'D4', 'owner': 'crm_admin', 'quality_dimension': 'accuracy', 'description': 'D4. Deals with a lost reason that reached Closing or later. A lost reason is set on won-looking deals too, so it is not a deal outcome and is not used for the funnel.'}
+    meta={'issue': 'D4', 'owner': 'crm_admin', 'quality_dimension': 'accuracy', 'description': 'Found (EDA 00 D4, 08 B5b): a lost reason is set on deals that reached Closing or after-sales, so it is a closure label, not an outcome. Improve (CRM admin): a won/lost status in the export. Handled: the lost reason does not remove deals from the funnel.'}
 ) }}
 
 -- deals with a lost reason

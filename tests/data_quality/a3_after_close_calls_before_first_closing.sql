@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_process'],
-    meta={'issue': 'A3', 'owner': 'sales_ops', 'quality_dimension': 'accuracy', 'description': 'A3. After-close calls due before any deal entered Closing: an after-close call needs a signed contract.'}
+    meta={'issue': 'A3', 'owner': 'sales_ops', 'quality_dimension': 'accuracy', 'description': 'Found (EDA 00 A3): after-close calls are due before any deal entered Closing, so they cannot have happened. Improve (sales ops): check how after-close calls are planned. Handled: after-close calls are not a funnel step; only Sales Call 1 and 2 feed the report.'}
 ) }}
 
 -- the first time any deal entered Closing (stage 6)

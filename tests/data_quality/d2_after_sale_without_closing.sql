@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_known_issue', 'dq_process'],
-    meta={'issue': 'D2', 'owner': 'sales_ops', 'quality_dimension': 'completeness', 'description': 'D2. Deals in an after-sale stage (7 to 9) that never entered Closing (6). Installation needs a signed contract, so the Closing was not recorded; the backfill counts them under Closing.'}
+    meta={'issue': 'D2', 'owner': 'sales_ops', 'quality_dimension': 'completeness', 'description': 'Found (EDA 00 D2): deals reach an after-sale stage (7 to 9) without a recorded Closing (6). Improve (sales ops): record the Closing. Handled: the backfill counts them under Closing; fct_deals.is_closing_inferred marks them.'}
 ) }}
 
 -- stage moves only, with the stage id typed after the filter

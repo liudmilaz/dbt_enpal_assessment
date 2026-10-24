@@ -29,7 +29,6 @@ order by
     changed_field_key,
     change_time;
 -- 0 rows: the candidate is unique
--- (On Postgres this needed a CTE with the window count and an outer filter: Postgres has no qualify.)
 
 -- =====================================================================
 -- 3. Foreign keys (rows whose value is missing in the parent)

@@ -11,7 +11,7 @@ with call_steps as (
     where source_type = 'activity'  -- steps 2.1 and 3.1
 ),
 
--- the deduplicated activities
+-- staged activities
 activities as (
     select
         activity_id,

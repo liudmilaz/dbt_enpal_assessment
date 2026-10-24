@@ -1,6 +1,6 @@
 # Enpal take-home: Pipedrive sales funnel in dbt on Snowflake
 
-The task (below, unchanged in substance) ships a local Postgres. With Enpal's agreement this solution runs on a **Snowflake trial account** instead: the role also asks for Snowflake semantic views, and one platform keeps the repository simple. AI tools (Claude Code) were used as support, as agreed.
+The assignment ships a local Postgres in Docker. Enpal agreed that this solution may run on my own **Snowflake trial account** instead, so the setup section below describes Snowflake and the repository contains no Postgres. Everything the task asks for is unchanged: the same six Pipedrive tables, the same layers, the same reporting model. The role also asks for Snowflake semantic views, and keeping one platform makes the project simpler to read. AI tools (Claude Code) were used as support, as agreed.
 
 ## Result
 
@@ -56,7 +56,7 @@ The open questions for the business (KPI owner, CRM admin) and the evidence behi
 
 - **Raw layer** (`models/sources/pipedrive/`, `tests/data_quality/`): every primary and foreign key, the domains, and the known issues of the export as warn-level tests named by issue id (for example `a1_repeated_activity_id`, `d1_deals_with_skipped_stages`), plus Elementary volume, freshness, dimension and schema monitors.
 - **Staging, intermediate, marts**: keys, relationships, accepted values at error; a unit test of the backfill rule; a reconciliation of the report against the stage entries.
-- `dbt build` on a fresh clone: 163 pass, 18 warn (the known issues of the export), 0 errors.
+- `dbt build` on a fresh clone: 166 pass, 19 warn (the known issues of the export), 0 errors.
 
 ## Repository
 
@@ -92,4 +92,4 @@ The open questions for the business (KPI owner, CRM admin) and the evidence behi
 5. Column names of the reporting model: `month`, `kpi_name`, `funnel_step`, `deals_count`
 6. “Git commit” all the changes and create a PR to your forked repo (not the original one). Send your repo link to us.
 
-The original setup section (Docker, local Postgres with admin/admin) is replaced by the Snowflake setup above.
+The setup steps of the original task (Docker, local Postgres with admin/admin, `dbt-postgres`) are replaced by the Snowflake setup above, with Enpal's agreement. The project steps are unchanged.

@@ -1,6 +1,6 @@
 {{ config(
     tags=['dq_check', 'dq_process'],
-    meta={'owner': 'data_team', 'quality_dimension': 'completeness', 'description': 'Every deal has a creation, an owner and a stage event. int_pipedrive__deals relies on all three.'}
+    meta={'owner': 'data_team', 'quality_dimension': 'completeness', 'description': 'Found (EDA 08 B1a): every deal has a creation, an owner and a stage event. Improve: none. Handled: int_pipedrive__deals relies on all three (created_at, first owner, first stage).'}
 ) }}
 
 -- the events each deal has
