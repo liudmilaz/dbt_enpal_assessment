@@ -1,4 +1,4 @@
--- TABLE public.users    CLASS: dictionary (master data)    GRAIN: one user, current state only
+-- TABLE enpal_raw.pipedrive.users    CLASS: dictionary (master data)    GRAIN: one user, current state only
 -- Business meaning: the sales staff who own deals and activities. See vault/project/business_context.md;
 -- field definitions and Pipedrive links in vault/project/data_dictionary.md.
 -- Findings in short:
@@ -11,7 +11,7 @@
 -- =====================================================================
 select
     count(*) as n_rows
-from public.users;
+from enpal_raw.pipedrive.users;
 -- 1787 rows; columns: id, name, email, modified
 
 -- =====================================================================
@@ -22,7 +22,7 @@ with counted as (
     select
         *,
         count(*) over (partition by id) as n_dup
-    from public.users
+    from enpal_raw.pipedrive.users
 )
 select
     *
@@ -43,7 +43,7 @@ select
     count(*) - count(name)     as name_nulls,
     count(*) - count(email)    as email_nulls,
     count(*) - count(modified) as modified_nulls
-from public.users;
+from enpal_raw.pipedrive.users;
 -- 0 | 0 | 0 | 0
 
 -- =====================================================================
@@ -58,16 +58,16 @@ from public.users;
 with referenced_users as (
     select
         assigned_to_user as user_id
-    from public.activity
+    from enpal_raw.pipedrive.activity
     union
     select
         new_value::int as user_id
-    from public.deal_changes
+    from enpal_raw.pipedrive.deal_changes
     where changed_field_key = 'user_id'
 )
 select
     count(*) as n_users_referenced
-from public.users u
+from enpal_raw.pipedrive.users u
 join referenced_users r
     on r.user_id = u.id;
 -- 1757 of 1787

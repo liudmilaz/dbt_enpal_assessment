@@ -1,0 +1,3 @@
+# dbt on Snowflake; install in a venv outside the repo
+dbt-core==1.10.23
+dbt-snowflake==1.10.8

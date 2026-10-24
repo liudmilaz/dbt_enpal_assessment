@@ -1,4 +1,4 @@
--- TABLE public.fields    CLASS: dictionary (metadata)    GRAIN: one deal field
+-- TABLE enpal_raw.pipedrive.fields    CLASS: dictionary (metadata)    GRAIN: one deal field
 -- Business meaning: decodes the keys and option ids in deal_changes into names and labels (stage labels, lost reasons).
 -- See vault/project/business_context.md; field definitions and Pipedrive links in vault/project/data_dictionary.md.
 -- Findings in short:
@@ -11,7 +11,7 @@
 -- =====================================================================
 select
     *
-from public.fields;
+from enpal_raw.pipedrive.fields;
 -- 4 rows: id, field_key, name, field_value_options (JSON)
 
 -- =====================================================================
@@ -23,7 +23,7 @@ with counted as (
         *,
         count(*) over (partition by id)        as n_dup_id,
         count(*) over (partition by field_key) as n_dup_key
-    from public.fields
+    from enpal_raw.pipedrive.fields
 )
 select
     *
@@ -45,7 +45,7 @@ select
     count(*) - count(field_key)           as field_key_nulls,
     count(*) - count(name)                as name_nulls,
     count(*) - count(field_value_options) as field_value_options_nulls
-from public.fields;
+from enpal_raw.pipedrive.fields;
 -- 0 | 0 | 0 | 2 (user_id and add_time have no option list)
 
 -- =====================================================================
@@ -59,10 +59,10 @@ from public.fields;
 -- 6a. The option lists inside field_value_options (JSON keys are case sensitive: 'label', not 'Label')
 select
     f.field_key,
-    o.id as option_id,
-    o.label as option_label
-from public.fields f
-cross join jsonb_to_recordset(f.field_value_options) as o(id int, label text)  -- one row per option, typed; fields without options (null) drop out
-order by f.field_key, o.id;
+    o.value:id::int as option_id,
+    o.value:label::varchar as option_label
+from enpal_raw.pipedrive.fields f
+cross join lateral flatten(input => f.field_value_options) o  -- one row per option, typed; fields without options (null) drop out
+order by f.field_key, o.value:id::int;
 -- lost_reason: 1 Customer Not Ready, 2 Pricing Issues, 3 Unreachable Customer, 4 Product Mismatch, 5 Duplicate Entry
 -- stage_id: the nine stage labels

@@ -1,4 +1,4 @@
--- TABLE public.activity    CLASS: fact    GRAIN: one planned activity (call or meeting)
+-- TABLE enpal_raw.pipedrive.activity    CLASS: fact    GRAIN: one planned activity (call or meeting)
 -- Business meaning: calls and meetings planned for a user and a deal; Sales Call 1 and 2 are funnel steps 2.1 and 3.1.
 -- See vault/project/business_context.md; field definitions and Pipedrive links in vault/project/data_dictionary.md.
 -- Findings in short:
@@ -13,7 +13,7 @@
 -- =====================================================================
 select
     count(*) as n_rows
-from public.activity;
+from enpal_raw.pipedrive.activity;
 -- 4579 rows; columns: activity_id, type, assigned_to_user, deal_id, done, due_to
 
 -- =====================================================================
@@ -25,7 +25,7 @@ with counted as (
     select
         *,
         count(*) over (partition by activity_id, type, assigned_to_user, deal_id, done, due_to) as n_dup
-    from public.activity
+    from enpal_raw.pipedrive.activity
 )
 select
     *
@@ -39,8 +39,8 @@ where n_dup > 1;
 -- assigned_to_user -> users.id
 select
     count(*) as n_orphans
-from public.activity a
-left join public.users u
+from enpal_raw.pipedrive.activity a
+left join enpal_raw.pipedrive.users u
     on u.id = a.assigned_to_user
 where u.id is null;
 -- 0
@@ -48,8 +48,8 @@ where u.id is null;
 -- type -> activity_types.type (activities reference the key string, not the id)
 select
     count(*) as n_orphans
-from public.activity a
-left join public.activity_types t
+from enpal_raw.pipedrive.activity a
+left join enpal_raw.pipedrive.activity_types t
     on t.type = a.type
 where t.type is null;
 -- 0
@@ -58,11 +58,11 @@ where t.type is null;
 with deals as (
     select distinct
         deal_id
-    from public.deal_changes
+    from enpal_raw.pipedrive.deal_changes
 )
 select
     count(*) as n_orphans
-from public.activity a
+from enpal_raw.pipedrive.activity a
 left join deals d
     on d.deal_id = a.deal_id
 where d.deal_id is null;
@@ -78,7 +78,7 @@ select
     count(*) - count(deal_id)          as deal_id_nulls,
     count(*) - count(done)             as done_nulls,
     count(*) - count(due_to)           as due_to_nulls
-from public.activity;
+from enpal_raw.pipedrive.activity;
 -- 0 | 0 | 0 | 0 | 0 | 0
 
 -- =====================================================================
@@ -90,7 +90,7 @@ select
     date_trunc('quarter', due_to)::date as due_quarter,
     date_trunc('year',    due_to)::date as due_year,
     count(*) as nr_activities
-from public.activity
+from enpal_raw.pipedrive.activity
 group by 1, 2, 3
 order by 1 desc;
 -- 490 to 580 per month from 2024-01 to 2024-08, 234 in 2024-09 (data ends 2024-09-13, a partial month). Flat: no ramp-up, no outlier month.
@@ -99,9 +99,9 @@ order by 1 desc;
 select
     type,
     count(*) as nr_activities,
-    count(*) filter (where done) as nr_done,
-    count(*) filter (where not done) as nr_not_done
-from public.activity
+    count_if(done) as nr_done,
+    count_if(not done) as nr_not_done
+from enpal_raw.pipedrive.activity
 group by 1
 order by 2 desc;
 -- after_close_call 1177 (595 done) | meeting 1145 (568) | follow_up 1133 (567) | sc_2 1124 (560): four equal types, each half done
@@ -111,7 +111,7 @@ with per_user as (  -- one row per user: how many activities they hold
     select
         assigned_to_user,
         count(*) as nr_activities
-    from public.activity
+    from enpal_raw.pipedrive.activity
     group by 1
 )
 select
@@ -127,7 +127,7 @@ select
     date_trunc('month', due_to)::date as due_month,
     type,
     count(*) as nr_activities
-from public.activity
+from enpal_raw.pipedrive.activity
 group by 1, 2
 order by 1, 2 desc;
 -- 36 rows: every type in every month from 2024-01 to 2024-09.

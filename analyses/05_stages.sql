@@ -1,4 +1,4 @@
--- TABLE public.stages    CLASS: dictionary    GRAIN: one pipeline stage
+-- TABLE enpal_raw.pipedrive.stages    CLASS: dictionary    GRAIN: one pipeline stage
 -- Business meaning: the nine steps of the sales pipeline; stage_id order is the funnel order. See vault/project/business_context.md;
 -- field definitions and Pipedrive links in vault/project/data_dictionary.md.
 -- Findings in short:
@@ -12,7 +12,7 @@
 -- =====================================================================
 select
     *
-from public.stages
+from enpal_raw.pipedrive.stages
 order by stage_id;
 -- 9 rows: stage_id, stage_name
 
@@ -24,7 +24,7 @@ with counted as (
     select
         *,
         count(*) over (partition by stage_id) as n_dup
-    from public.stages
+    from enpal_raw.pipedrive.stages
 )
 select
     *
@@ -43,7 +43,7 @@ where n_dup > 1;
 select
     count(*) - count(stage_id)   as stage_id_nulls,
     count(*) - count(stage_name) as stage_name_nulls
-from public.stages;
+from enpal_raw.pipedrive.stages;
 -- 0 | 0
 
 -- =====================================================================
@@ -57,17 +57,17 @@ from public.stages;
 -- 6a. Stage names compared with the stage labels in fields
 with stage_labels as (  -- unpack the JSON array once: one row per stage option
     select
-        o.id as stage_id,
-        o.label as stage_label
-    from public.fields f
-    cross join jsonb_to_recordset(f.field_value_options) as o(id int, label text)  -- typed columns: id arrives as int, no (o ->> 'id')::int
+        o.value:id::int as stage_id,
+        o.value:label::varchar as stage_label
+    from enpal_raw.pipedrive.fields f
+    cross join lateral flatten(input => f.field_value_options) o  -- one row per option; id and label typed where used
     where f.field_key = 'stage_id'  -- unpack only the stage field's array
 )
 select
     s.stage_id,
     s.stage_name,
     l.stage_label
-from public.stages s
+from enpal_raw.pipedrive.stages s
 join stage_labels l
     on l.stage_id = s.stage_id
 where s.stage_name <> l.stage_label;

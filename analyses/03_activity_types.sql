@@ -1,4 +1,4 @@
--- TABLE public.activity_types    CLASS: dictionary    GRAIN: one activity type
+-- TABLE enpal_raw.pipedrive.activity_types    CLASS: dictionary    GRAIN: one activity type
 -- Business meaning: the kinds of activity; Sales Call 1 (key meeting) and Sales Call 2 (key sc_2) are funnel steps 2.1 and 3.1.
 -- See vault/project/business_context.md; field definitions and Pipedrive links in vault/project/data_dictionary.md.
 -- Findings in short:
@@ -12,7 +12,7 @@
 -- =====================================================================
 select
     *
-from public.activity_types;
+from enpal_raw.pipedrive.activity_types;
 -- 4 rows: id, name, active, type
 
 -- =====================================================================
@@ -24,7 +24,7 @@ with counted as (
         *,
         count(*) over (partition by id)   as n_dup_id,
         count(*) over (partition by type) as n_dup_type
-    from public.activity_types
+    from enpal_raw.pipedrive.activity_types
 )
 select
     *
@@ -46,7 +46,7 @@ select
     count(*) - count(name)   as name_nulls,
     count(*) - count(active) as active_nulls,
     count(*) - count(type)   as type_nulls
-from public.activity_types;
+from enpal_raw.pipedrive.activity_types;
 -- 0 | 0 | 0 | 0
 
 -- =====================================================================
@@ -64,8 +64,8 @@ select
     t.type,
     t.active,
     count(a.activity_id) as n_activities
-from public.activity_types t
-left join public.activity a
+from enpal_raw.pipedrive.activity_types t
+left join enpal_raw.pipedrive.activity a
     on a.type = t.type
 group by 1, 2, 3, 4
 order by 1;

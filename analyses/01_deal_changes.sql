@@ -1,4 +1,4 @@
--- TABLE public.deal_changes    CLASS: fact (event log)    GRAIN: one change of one field of one deal
+-- TABLE enpal_raw.pipedrive.deal_changes    CLASS: fact (event log)    GRAIN: one change of one field of one deal
 -- Business meaning: the history of each deal (created, owner assigned, stage entered, lost reason set). See vault/project/business_context.md;
 -- field definitions and Pipedrive links in vault/project/data_dictionary.md.
 -- Findings in short:
@@ -13,29 +13,23 @@
 -- =====================================================================
 select
     count(*) as n_rows
-from public.deal_changes;
+from enpal_raw.pipedrive.deal_changes;
 -- 15406 rows; columns: deal_id, change_time, changed_field_key, new_value
 
 -- =====================================================================
 -- 2. Primary key
 -- =====================================================================
 -- No key is declared. Candidate: (deal_id, changed_field_key, change_time). Rows that share it:
-with counted as (
-select *,
-    count(*) over (partition by deal_id, changed_field_key, change_time) as n_dup
-from public.deal_changes
-    )
-select *
-from counted
-where n_dup > 1
-order by deal_id, changed_field_key, change_time; --postgres limitation: no qualify, so filter the window count in a cte
+select
+    *
+from enpal_raw.pipedrive.deal_changes
+qualify count(*) over (partition by deal_id, changed_field_key, change_time) > 1  -- keep only rows whose candidate key repeats
+order by
+    deal_id,
+    changed_field_key,
+    change_time;
 -- 0 rows: the candidate is unique
-
--- example of how a compound primary key can be identified in SF / BQ:
--- select
---     *
--- from public.deal_changes
--- qualify count(*) over (partition by deal_id, changed_field_key, change_time) > 1;
+-- (On Postgres this needed a CTE with the window count and an outer filter: Postgres has no qualify.)
 
 -- =====================================================================
 -- 3. Foreign keys (rows whose value is missing in the parent)
@@ -44,8 +38,8 @@ order by deal_id, changed_field_key, change_time; --postgres limitation: no qual
 select
     c.changed_field_key,
     count(*) as n_rows
-from public.deal_changes c
-left join public.fields f
+from enpal_raw.pipedrive.deal_changes c
+left join enpal_raw.pipedrive.fields f
     on f.field_key = c.changed_field_key
 where f.field_key is null
 group by 1;
@@ -56,14 +50,14 @@ group by 1;
 with stage_events as (
     select
         new_value::int as stage_id
-    from public.deal_changes
+    from enpal_raw.pipedrive.deal_changes
     where changed_field_key = 'stage_id'
 )
 select
     e.stage_id,
     count(*) as n_rows
 from stage_events e
-left join public.stages s
+left join enpal_raw.pipedrive.stages s
     on s.stage_id = e.stage_id
 where s.stage_id is null
 group by 1;
@@ -73,14 +67,14 @@ group by 1;
 with owner_events as (
     select
         new_value::int as user_id
-    from public.deal_changes
+    from enpal_raw.pipedrive.deal_changes
     where changed_field_key = 'user_id'
 )
 select
     e.user_id,
     count(*) as n_rows
 from owner_events e
-left join public.users u
+left join enpal_raw.pipedrive.users u
     on u.id = e.user_id
 where u.id is null
 group by 1;
@@ -91,15 +85,15 @@ with lost_reason_counts as (  -- aggregate before the join: 2,000 events become 
     select
         new_value::int as reason_id,  
         count(*) as n_rows
-    from public.deal_changes
+    from enpal_raw.pipedrive.deal_changes
     where changed_field_key = 'lost_reason'  
     group by 1
 ),
 lost_reason_options as (  
     select
-        o.id as option_id
-    from public.fields f
-    cross join jsonb_to_recordset(f.field_value_options) as o(id int, label text)  -- typed columns declared once, instead of o ->> 'id' at every use
+        o.value:id::int as option_id
+    from enpal_raw.pipedrive.fields f
+    cross join lateral flatten(input => f.field_value_options) o  -- one row per option; id and label typed where used
     where f.field_key = 'lost_reason'  -- unpack only this field's array, not all four
 )
 select
@@ -119,7 +113,7 @@ select
     count(*) - count(change_time)       as change_time_nulls,
     count(*) - count(changed_field_key) as changed_field_key_nulls,
     count(*) - count(new_value)         as new_value_nulls
-from public.deal_changes;
+from enpal_raw.pipedrive.deal_changes;
 -- 0 | 0 | 0 | 0
 
 -- =====================================================================
@@ -131,7 +125,7 @@ select
     date_trunc('quarter', change_time)::date as change_quarter,
     date_trunc('year',    change_time)::date as change_year,
     count(*) as nr_changes
-from public.deal_changes
+from enpal_raw.pipedrive.deal_changes
 group by 1, 2, 3
 order by 1 desc;
 -- 2024-01: 432, rises to ~1,900 in 2024-07 / 2024-08, then falls to 3 in 2025-03 (data ends 2025-03-11, a partial month).
@@ -142,7 +136,7 @@ select
     changed_field_key,
     count(*) as nr_changes,
     count(distinct deal_id) as nr_deals
-from public.deal_changes
+from enpal_raw.pipedrive.deal_changes
 group by 1
 order by 2 desc;
 -- stage_id 8906 | user_id 2500 | add_time 2000 | lost_reason 2000; every key covers all 1995 deals
@@ -152,7 +146,7 @@ select
     date_trunc('month', change_time)::date as change_month,
     changed_field_key,
     count(*) as nr_changes
-from public.deal_changes
+from enpal_raw.pipedrive.deal_changes
 group by 1, 2
 order by 1, 2 desc;
 -- 48 rows: a key with no change in a month has no row (add_time after 2024-09, user_id after 2024-11, lost_reason in 2024-01,
@@ -171,7 +165,7 @@ with changes_per_deal_month as (  -- aggregate first: one row per deal and month
         date_trunc('month', change_time)::date as change_month,
         deal_id,
         count(*) as nr_changes
-    from public.deal_changes
+    from enpal_raw.pipedrive.deal_changes
     group by 1, 2
 )
 select
@@ -194,7 +188,7 @@ order by 1 desc;
 with moves as (  -- filter first: only stage events, so the cast to int is safe
     select
         new_value::int - lag(new_value::int) over (partition by deal_id order by change_time) as move
-    from public.deal_changes
+    from enpal_raw.pipedrive.deal_changes
     where changed_field_key = 'stage_id'
 )
 select
@@ -210,7 +204,7 @@ order by 1;
 select
     deal_id,
     count(*) as n_creations
-from public.deal_changes
+from enpal_raw.pipedrive.deal_changes
 where changed_field_key = 'add_time'
 group by 1
 having count(*) > 1;

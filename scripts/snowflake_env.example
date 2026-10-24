@@ -1,0 +1,5 @@
+# Copy to ~/.snowflake/enpal.env, fill in, chmod 600. Read by profiles.yml (targets test and prod) and scripts/dq_report.sh.
+# Key-pair auth: the public key is set on the user with  alter user <user> set rsa_public_key = '...';
+export SNOWFLAKE_ACCOUNT="<orgname>-<account_name>"
+export SNOWFLAKE_USER="ENPAL_DBT_USER"
+export SNOWFLAKE_PRIVATE_KEY_PATH="$HOME/.ssh/<key>.p8"

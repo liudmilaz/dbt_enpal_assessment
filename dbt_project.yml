@@ -23,14 +23,64 @@ clean-targets:         # directories to be removed by `dbt clean`
   - "dbt_packages"
 
 
-# Configuring models
-# Full documentation: https://docs.getdbt.com/docs/configuring-models
-
-# In this example config, we tell dbt to build all models in the example/
-# directory as views. These settings can be overridden in the individual model
-# files using the `{{ config(...) }}` macro.
+# One schema per layer, the same names in test (ENPAL_TEST) and prod (ENPAL_ANALYTICS_PROD):
+# see macros/generate_schema_name.sql. Staging and intermediate are views, marts are tables.
 models:
   enpal_assessment_project:
-    # Config indicated by + and applies to all files under models/example/
-    +schema: pipedrive_analytics
-    +materialized: table
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+    marts:
+      +schema: marts
+      +materialized: table
+  # Elementary's result tables in their own schema (ELEMENTARY)
+  elementary:
+    +schema: elementary
+
+# Data tests per layer (vault/project/elementary_rollout.md).
+# Raw layer: the source YAML and the singular tests on raw data only warn and carry the tag dq_raw.
+# Staging layer: the tests on the cleansed data are promises of the pipeline, at error, tag dq_staging.
+data_tests:
+  enpal_assessment_project:
+    sources:
+      +severity: warn
+      +tags: [dq_raw]
+    data_quality:
+      +severity: warn
+      +tags: [dq_raw]
+    staging:
+      +severity: error
+      +tags: [dq_staging]
+    intermediate:
+      +severity: error
+      +tags: [dq_intermediate]
+    marts:
+      +severity: error
+      +tags: [dq_report]
+
+# Where the raw tables are read from, per target (models/staging/pipedrive/sources/_pipedrive__sources.yml):
+#   test -> ENPAL_TEST.SRC, zero-copy clones made by `dbt run-operation refresh_src`
+#   prod -> ENPAL_RAW.PIPEDRIVE, read directly
+vars:
+  # Funnel rules (vault/project/model_plan.md). Decided: backfill skipped stages. Open, set to Claude's recommendation:
+  funnel_backfill_skipped_stages: true   # decided by the owner: a skipped stage counts as reached (is_inferred)
+  step_1_date: stage_entry               # open: 'stage_entry' (first entry into stage 1) or 'created' (add_time)
+  calls_done_only: true                  # open: steps 2.1 and 3.1 count done calls only
+  report_start_month: '2024-01-01'       # open: report window, months with stage events
+  report_end_month: '2025-02-01'
+  raw_location:
+    test: { database: ENPAL_TEST, schema: SRC }
+    prod: { database: ENPAL_RAW, schema: PIPEDRIVE }
+
+seeds:
+  enpal_assessment_project:
+    +schema: seeds
+    funnel_steps:
+      +column_types:
+        funnel_step: varchar
+        stage_id: integer
+        activity_type: varchar
+        sort_order: integer
