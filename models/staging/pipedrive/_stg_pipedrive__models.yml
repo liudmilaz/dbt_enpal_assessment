@@ -4,22 +4,33 @@ version: 2
 # Tests here are promises of the pipeline: severity error, tag dq_staging (dbt_project.yml).
 # Known issues of the raw data stay on the sources (models/sources/pipedrive/) and are not repeated here;
 # what staging cleans (A1, DUP-1, D6, T1) is tested here as fixed.
+# Descriptions hold the business meaning (vault/project/crm_field_definitions.md, business_context.md);
+# the stage and activity-type meanings are an interpretation to confirm with Enpal. Cleaning and data quality
+# notes are in meta: cleaning, caveats (issue ids of vault/project/cleansing_proposals.md).
+# Column meta: source_column = raw column, crm_label = the name users see in Pipedrive.
+# Generic tests: unique + not_null on primary and alternate keys, not_null + relationships on foreign keys (no unique:
+# a foreign key repeats by definition). Other columns get not_null only where the report filters or dates by them.
 
 models:
   - name: stg_pipedrive__deal_changes
     description: >
-      One row per change of one deal field (logical entity DEAL_EVENT): 15,406 rows on 2026-10-24, 0 full-row duplicates removed.
-      new_value stays as delivered; each key gets its own typed column, null on the rows of the other keys (D6).
-      The history is generated (D5) and has 5 deals with two lifecycles (D3): see the source description.
+      The history of every deal in Enpal's sales pipeline. A deal is one sales opportunity: a household or business
+      that might buy or rent a solar system, battery, wallbox, heat pump or an electricity contract. Each row is one
+      change of one deal property, as the CRM records it in the deal's history: the deal was created (a lead became
+      a deal), assigned to an owner (lead routing, hand-over), moved into a pipeline stage, or closed with a lost reason.
+      The export has no deals table, so the deals of the funnel are derived from this history; the first entry of a
+      deal into a stage is what the funnel report counts.
     config:
       meta:
-        grain: "deal_change_key (= deal_id, changed_field_key, change_time, new_value)"
+        grain: "deal_change_key (= deal_id, changed_field_key, change_time)"
         primary_key: [deal_change_key]
+        logical_entity: DEAL_EVENT
+        cleaning: "No rows removed (0 full-row duplicates on 2026-10-24); new_value split into one typed column per key (D6)."
+        caveats:
+          - "D5: change times are generated (creation clock time + whole days); use dates, not durations."
+          - "D3: 5 deals hold two lifecycles, consistent with a duplicate lead merged into one deal."
+          - "Only four deal properties are exported; no previous value and no author of a change."
     data_tests:
-      - dbt_utils.unique_combination_of_columns:
-          arguments: { combination_of_columns: [deal_id, changed_field_key, change_time] }
-          config:
-            meta: { quality_dimension: uniqueness }
       - dbt_utils.expression_is_true:
           name: one_typed_value_per_change__stg_deal_changes
           description: "Exactly one typed column is filled per row, the one of its key. A failure means a new key or a cast that returned null."
@@ -41,40 +52,64 @@ models:
             meta: { quality_dimension: consistency }
     columns:
       - name: deal_change_key
-        description: "Surrogate key over all four source columns (decided 2026-10-23): the only key that also catches a full-row duplicate."
+        description: "Identifies one change of one deal property at one time; built over the deal, the property and the time."
+        config:
+          meta: { source_column: "derived: hash of deal_id, changed_field_key, change_time", key: primary }
+        # unique covers the grain; not_null stays on the three parts, because the hash is never null
         data_tests: [unique, not_null]
       - name: deal_id
-        description: "The deal; there is no deals table, int_pipedrive__deals derives it."
+        description: "The sales opportunity the change belongs to."
+        config:
+          meta: { source_column: deal_id, key: "primary (part)" }
         data_tests: [not_null]
       - name: changed_field_key
-        description: "add_time, user_id, stage_id or lost_reason; decides which typed column is filled."
+        description: >
+          Which property of the deal changed: add_time (Deal created), user_id (Owner), stage_id (Stage) or
+          lost_reason (Lost reason). It decides which of the typed columns below holds the new value.
+        config:
+          meta: { source_column: changed_field_key }
         data_tests:
           - not_null
           - accepted_values:
               arguments: { values: [add_time, user_id, stage_id, lost_reason] }
       - name: change_time
-        description: "When the change happened. 99.8% fall on the deal's creation clock time (D5): use dates, not durations."
+        description: "When the change was made in the CRM."
+        config:
+          meta: { source_column: change_time }
         data_tests: [not_null]
       - name: new_value
-        description: "The value as delivered (text), kept for tracing."
+        description: "The value of the property after the change, as recorded; its meaning depends on changed_field_key. Kept for tracing."
+        config:
+          meta: { source_column: new_value }
       - name: deal_created_at
-        description: "add_time rows only: the creation time. 5 deals have two (D3, two lifecycles)."
+        description: "Deal created: when a lead became a deal, i.e. the household showed interest (web form, call, partner). Filled on add_time rows only."
+        config:
+          meta: { source_column: new_value, crm_label: Deal created }
       - name: owner_user_id
-        description: "user_id rows only: the new owner of the deal."
+        description: "Owner: the person the deal was assigned or re-assigned to (lead routing, hand-over). Filled on user_id rows only."
+        config:
+          meta: { source_column: new_value, crm_label: Owner }
         data_tests:
           - relationships:
               arguments:
                 to: ref('stg_pipedrive__users')
                 field: user_id
       - name: stage_id
-        description: "stage_id rows only: the stage the deal moved into (1 to 9)."
+        description: "Stage: the pipeline stage the deal moved into, 1 (Lead Generation) to 9 (Renewal/Expansion). Filled on stage_id rows only."
+        config:
+          meta: { source_column: new_value, crm_label: Stage }
         data_tests:
           - relationships:
               arguments:
                 to: ref('stg_pipedrive__stages')
                 field: stage_id
       - name: lost_reason_id
-        description: "lost_reason rows only: the option id of the lost reason (1 to 5). Every deal has one (D4): not a deal outcome."
+        description: >
+          Lost reason: the deal was closed as lost, with the reason the rep chose from the admin's list (1 to 5, labels in
+          stg_pipedrive__field_options). Filled on lost_reason rows only. In this export every deal has one, so it is a
+          closure label, not a won/lost outcome (D4).
+        config:
+          meta: { source_column: new_value, crm_label: Lost reason }
         data_tests:
           - dbt_utils.relationships_where:
               arguments:
@@ -84,19 +119,30 @@ models:
 
   - name: stg_pipedrive__activity
     description: >
-      One row per activity (logical entity ACTIVITY): 4,568 rows on 2026-10-24. The 11 activity_ids that the source
-      repeats (A1, 22 rows) keep the row with the latest due_at (decided 2026-10-23), so 11 rows are removed.
-      deal_id matches the deal history for only 8 activities (A2): calls are counted by due month, not per funnel deal.
+      The work sales reps plan to move a deal forward: calls, consultations and follow-ups. Each row is one planned
+      activity, of one type, for one person and one deal. Planned is not held: only is_done says it took place.
+      Sales Call 1 (first consultation with the household) is funnel step 2.1, Sales Call 2 (second consultation,
+      around the offer) is step 3.1.
     config:
       meta:
         grain: "activity_id"
         primary_key: [activity_id]
+        logical_entity: ACTIVITY
+        cleaning: "11 activity_ids repeated by unrelated activities (A1, 22 rows): the latest due_at per id is kept, 4,579 to 4,568 rows (decided 2026-10-23)."
+        caveats:
+          - "A2: only 8 activities match a deal of the deal history, so calls are counted by due month, not per funnel deal."
+          - "A4: every type is about 50% done, although all are due before the export ends."
+          - "X1: activities end on 2024-09-13, earlier than the deal history."
     columns:
       - name: activity_id
-        description: "Primary key, unique after the deduplication."
+        description: "The activity's id in the CRM."
+        config:
+          meta: { source_column: activity_id }
         data_tests: [unique, not_null]
       - name: activity_type
-        description: "Key string of the type: meeting = Sales Call 1 (step 2.1), sc_2 = Sales Call 2 (step 3.1)."
+        description: "The kind of activity, by its key: meeting = Sales Call 1, sc_2 = Sales Call 2, follow_up = Follow Up Call, after_close_call = After Close Call."
+        config:
+          meta: { source_column: type }
         data_tests:
           - not_null
           - relationships:
@@ -104,7 +150,9 @@ models:
                 to: ref('stg_pipedrive__activity_types')
                 field: activity_type
       - name: assigned_user_id
-        description: "The user who owns the activity."
+        description: "The person responsible for doing the activity."
+        config:
+          meta: { source_column: assigned_to_user }
         data_tests:
           - not_null
           - relationships:
@@ -112,92 +160,160 @@ models:
                 to: ref('stg_pipedrive__users')
                 field: user_id
       - name: deal_id
-        description: "The deal the activity is planned against; intended link to the deal history, 8 of 4,568 match (A2)."
+        description: "The sales opportunity the activity is for."
+        config:
+          meta: { source_column: deal_id }
         data_tests: [not_null]
       - name: is_done
-        description: "Marked as done; about 50% for every type (A4). Whether steps 2.1 and 3.1 count only done calls is open."
+        description: "Whether the rep marked the activity as done, i.e. it took place. Steps 2.1 and 3.1 count done calls (var calls_done_only)."
+        config:
+          meta: { source_column: done }
+        # not a key, but it filters steps 2.1 and 3.1: a null would silently drop a call (dbt skill, tier 2)
         data_tests: [not_null]
       - name: due_at
-        description: "Planned date and time; the month of the call in the report. Last value 2024-09-13 (X1)."
+        description: "When the activity is planned (date and time); its month is the month of the call in the funnel report."
+        config:
+          meta: { source_column: due_to }
+        # not a key, but it dates the call in the report: a null would silently drop a call (dbt skill, tier 2)
         data_tests: [not_null]
 
   - name: stg_pipedrive__activity_types
-    description: "One row per activity type (logical entity ACTIVITY_TYPE): 4 rows. is_active replaces the text flag 'Yes' / 'No' (T1)."
+    description: >
+      The kinds of activity a rep can plan, set up by the CRM administrator: Sales Call 1 (first consultation),
+      Sales Call 2 (second consultation, around the offer), Follow Up Call (a chase or reminder between steps) and
+      After Close Call (after the contract: installation, onboarding, satisfaction).
     config:
       meta:
         grain: "activity_type"
         primary_key: [activity_type]
+        logical_entity: ACTIVITY_TYPE
+        cleaning: "The text flag 'Yes' / 'No' is cast to the boolean is_active (T1)."
+        caveats:
+          - "Follow Up Call is inactive but keeps 1,133 activities."
+          - "157 After Close Calls are due before the first deal reached Closing (2024-02-02)."
     columns:
       - name: activity_type_id
-        description: "Surrogate id of the type; nothing references it."
+        description: "Technical id of the type."
+        config:
+          meta: { source_column: id }
         data_tests: [unique, not_null]
       - name: activity_type_name
-        description: "Display name: Sales Call 1, Sales Call 2, Follow Up Call, After Close Call."
+        description: "The name users see in the CRM: Sales Call 1, Sales Call 2, Follow Up Call, After Close Call."
+        config:
+          meta: { source_column: name }
       - name: activity_type
-        description: "Key string that activities reference; the join key."
+        description: "The technical key activities refer to; fixed when the type is created, so it is the join key."
+        config:
+          meta: { source_column: type }
         data_tests: [unique, not_null]
       - name: is_active
-        description: "Whether the type can be chosen for new activities. Follow Up Call is inactive but keeps 1,133 activities (T1)."
-        data_tests: [not_null]
+        description: "Whether reps can still choose the type for new activities; old activities keep an inactive type."
+        config:
+          meta: { source_column: active }
 
   - name: stg_pipedrive__stages
-    description: "One row per pipeline stage (logical entity STAGE): 9 rows, stage_id 1 to 9 = funnel steps 1 to 9. Source spelling kept (S1)."
+    description: >
+      The sales pipeline: the nine steps a deal goes through, from first interest to after-sales, which are also the
+      funnel steps 1 to 9 of the report. Lead Generation (a household shows interest), Qualified Lead (fits a product:
+      own roof, region, budget), Needs Assessment (roof, consumption and budget assessed), Proposal/Quote Preparation
+      (system designed, rental or purchase offer), Negotiation, Closing (contract signed), Implementation/Onboarding
+      (installation and grid connection), Follow-up/Customer Success (after-sales care), Renewal/Expansion (add-ons:
+      battery, wallbox, heat pump, electricity contract).
     config:
       meta:
         grain: "stage_id"
         primary_key: [stage_id]
+        logical_entity: STAGE
+        cleaning: "None; the source spelling is kept."
+        caveats:
+          - "S1: stage 2 reads 'Qualified lead' here and 'Qualified Lead' in the field options."
+          - "D1: 84% of deals skip at least one stage, so stages describe where reps moved the deal, not every step the customer went through."
     columns:
       - name: stage_id
-        description: "Stage id 1 to 9, also the funnel order (the export has no order_nr)."
+        description: "The position of the step in the pipeline (1 = first); the order of the ids is the order of the funnel."
+        config:
+          meta: { source_column: stage_id }
         data_tests:
           - unique
           - not_null
           - accepted_values:
               arguments: { values: [1, 2, 3, 4, 5, 6, 7, 8, 9] }
       - name: stage_name
-        description: "Name as set by the CRM admin; stage 2 reads 'Qualified lead' (fields: 'Qualified Lead', S1)."
-        data_tests: [not_null]
+        description: "The step's name as the sales team sees it, set by the CRM administrator."
+        config:
+          meta: { source_column: stage_name }
 
   - name: stg_pipedrive__field_options
     description: >
-      One row per option of a single-option deal field (logical entities FIELD_OPTION and LOST_REASON), unpacked from
-      fields.field_value_options: 9 stage labels and 5 lost reasons, 14 rows. Fields without options (add_time, user_id) have none.
+      The allowed values of the deal's list fields, with the labels users see: the nine stage labels of the Stage
+      field and the five lost reasons of the Lost reason field. The lost reasons are Customer Not Ready (interested
+      but not now), Pricing Issues (price or financing did not work), Unreachable Customer (stopped answering),
+      Product Mismatch (roof, house, consumption or region does not fit) and Duplicate Entry (a second deal for the
+      same customer, closed).
     config:
       meta:
         grain: "field_key, option_id"
         primary_key: [field_key, option_id]
+        logical_entity: [FIELD_OPTION, LOST_REASON]
+        cleaning: "Unpacked from the JSON array fields.field_value_options; fields without a list (Deal created, Owner) have no rows."
+        caveats:
+          - "DUP-6: 274 of 377 Duplicate Entry deals reached Closing, so duplicates are not caught early."
+          - "D4-unreachable: 411 of 422 Unreachable Customer deals reached Needs Assessment or later."
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments: { combination_of_columns: [field_key, option_id] }
     columns:
       - name: field_key
-        description: "stage_id or lost_reason."
+        description: "The technical name of the deal property the option belongs to: stage_id or lost_reason."
+        config:
+          meta: { source_column: field_key }
         data_tests:
           - not_null
           - accepted_values:
               arguments: { values: [stage_id, lost_reason] }
       - name: field_name
-        description: "Display name of the field: Stage, Lost reason."
+        description: "The property's label in the CRM: Stage, Lost reason."
+        config:
+          meta: { source_column: name }
       - name: option_id
-        description: "Option id: the stage id for stage_id, the lost-reason id for lost_reason."
+        description: "The value stored on the deal: the stage id for Stage, the reason id for Lost reason."
+        config:
+          meta: { source_column: "field_value_options[].id" }
         data_tests: [not_null]
       - name: option_label
-        description: "Option label; the lost reasons are Customer Not Ready, Pricing Issues, Unreachable Customer, Product Mismatch, Duplicate Entry."
-        data_tests: [not_null]
+        description: "The label users pick in the CRM, for example Negotiation or Pricing Issues."
+        config:
+          meta: { source_column: "field_value_options[].label" }
 
   - name: stg_pipedrive__users
-    description: "One row per CRM user, current state only (logical entity USER): 1,787 rows. Not a sales-team shape (U2); never join on email (U1)."
+    description: >
+      The people working in the CRM: sales reps, lead qualifiers, after-sales agents. They own deals and are
+      responsible for activities. Current state only: no history of names or emails.
     config:
       meta:
         grain: "user_id"
         primary_key: [user_id]
+        logical_entity: USER
+        cleaning: "Columns renamed only."
+        caveats:
+          - "U2: 1,347 owners for 1,995 deals (median 2 each) and 30 users with no deal and no activity: not the shape of a real sales team."
+          - "U1: 4 emails are shared by two users; never join on email."
+          - "X1: user records run to 2024-10-28, after the last activity."
     columns:
       - name: user_id
-        description: "User id; deal owners (stg_pipedrive__deal_changes.owner_user_id) and activity owners refer to it."
+        description: "The person's id; referenced as deal owner (stg_pipedrive__deal_changes.owner_user_id) and as activity assignee."
+        config:
+          meta: { source_column: id }
         data_tests: [unique, not_null]
       - name: user_name
-        description: "Full name; 21 names are shared by 42 users."
+        description: "The person's name; not unique, so it does not identify a person."
+        config:
+          meta: { source_column: name }
       - name: email
-        description: "Email; 4 are shared by two users (U1), tested on the source. Not a key."
+        description: "The person's login email; not a key."
+        config:
+          meta: { source_column: email }
       - name: modified_at
-        description: "Last change of the user record; latest 2024-10-28 (X1)."
+        description: "The last change of the user record."
+        config:
+          meta: { source_column: modified }

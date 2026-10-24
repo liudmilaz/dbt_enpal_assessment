@@ -5,8 +5,10 @@ version: 2
 # Test names start with the issue id of vault/project/cleansing_proposals.md; the description holds the count measured on 2026-10-23.
 # Tags: dq_known_issue = a known defect, its failed rows are the size of the issue; dq_check = should pass; dq_monitor = Elementary anomaly or schema monitor.
 # Keys and relationships from the exploratory analysis (vault/project/logical_model.md) are in meta: table_kind, grain, primary_key,
-# foreign_keys on each table, key and references on each key column. Every primary key has unique + not_null, every foreign key a
-# relationships test; keys inside deal_changes.new_value are tested in tests/data_quality/fk_*.sql, because they need a cast.
+# foreign_keys on each table, key and references on each key column. Every primary key has unique + not_null (a composite key
+# unique_combination_of_columns + not_null on each part), every foreign key not_null + relationships, never unique; keys inside
+# deal_changes.new_value are tested in tests/data_quality/fk_*.sql, because they need a cast. Other columns get not_null only
+# where the report filters or dates by them (activity.done, activity.due_to), and unique only to measure a known issue (U1).
 # Column descriptions come from vault/project/data_dictionary.md; the measured facts from analyses/01_ to 06_ and 00_data_quality_issues.sql.
 # Column types are Snowflake's own names (NUMBER, TEXT, TIMESTAMP_NTZ, BOOLEAN, VARIANT): the schema baselines compare them with the information schema.
 # Anomaly monitors run on weekly buckets from 2024-01; locally the run date is set inside the data (scripts/dq_report.sh).
@@ -421,11 +423,6 @@ sources:
           - name: stage_name
             description: "Stage name as set by the CRM admin; stage 2 reads 'Qualified lead' here and 'Qualified Lead' in fields (S1)."
             data_type: TEXT
-            data_tests:
-              - not_null:
-                  config: { tags: [dq_check], meta: { owner: data_team } }
-              - unique:
-                  config: { tags: [dq_check], meta: { owner: data_team } }
 
       - name: fields
         description: >
@@ -508,8 +505,7 @@ sources:
             config:
               meta: { issue: U1 }
             data_tests:
-              - not_null:
-                  config: { tags: [dq_check], meta: { owner: data_team } }
+              # not a key: unique here measures the known issue U1 (warn), it is not a key constraint
               - unique:
                   name: u1_shared_email__users
                   description: "U1 / DUP-5. Emails shared by two users with different names: 4 on 2026-10-23. Never join on email."
