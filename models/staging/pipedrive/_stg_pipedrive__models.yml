@@ -1,0 +1,203 @@
+version: 2
+
+# Staging: one view per raw table, rename / cast / deduplicate only (vault/project/model_plan.md).
+# Tests here are promises of the pipeline: severity error, tag dq_staging (dbt_project.yml).
+# Known issues of the raw data stay on the sources (models/sources/pipedrive/) and are not repeated here;
+# what staging cleans (A1, DUP-1, D6, T1) is tested here as fixed.
+
+models:
+  - name: stg_pipedrive__deal_changes
+    description: >
+      One row per change of one deal field (logical entity DEAL_EVENT): 15,406 rows on 2026-10-24, 0 full-row duplicates removed.
+      new_value stays as delivered; each key gets its own typed column, null on the rows of the other keys (D6).
+      The history is generated (D5) and has 5 deals with two lifecycles (D3): see the source description.
+    config:
+      meta:
+        grain: "deal_change_key (= deal_id, changed_field_key, change_time, new_value)"
+        primary_key: [deal_change_key]
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments: { combination_of_columns: [deal_id, changed_field_key, change_time] }
+          config:
+            meta: { quality_dimension: uniqueness }
+      - dbt_utils.expression_is_true:
+          name: one_typed_value_per_change__stg_deal_changes
+          description: "Exactly one typed column is filled per row, the one of its key. A failure means a new key or a cast that returned null."
+          arguments:
+            expression: >
+              (case when deal_created_at is null then 0 else 1 end)
+              + (case when owner_user_id is null then 0 else 1 end)
+              + (case when stage_id is null then 0 else 1 end)
+              + (case when lost_reason_id is null then 0 else 1 end) = 1
+          config:
+            meta: { issue: D6, quality_dimension: validity }
+      - dbt_utils.expression_is_true:
+          name: creation_value_equals_change_time__stg_deal_changes
+          description: "For add_time, the value is the change time itself (2,000 of 2,000 on 2026-10-24), so either can date the creation."
+          arguments:
+            expression: "deal_created_at = change_time"
+          config:
+            where: "changed_field_key = 'add_time'"
+            meta: { quality_dimension: consistency }
+    columns:
+      - name: deal_change_key
+        description: "Surrogate key over all four source columns (decided 2026-10-23): the only key that also catches a full-row duplicate."
+        data_tests: [unique, not_null]
+      - name: deal_id
+        description: "The deal; there is no deals table, int_pipedrive__deals derives it."
+        data_tests: [not_null]
+      - name: changed_field_key
+        description: "add_time, user_id, stage_id or lost_reason; decides which typed column is filled."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments: { values: [add_time, user_id, stage_id, lost_reason] }
+      - name: change_time
+        description: "When the change happened. 99.8% fall on the deal's creation clock time (D5): use dates, not durations."
+        data_tests: [not_null]
+      - name: new_value
+        description: "The value as delivered (text), kept for tracing."
+      - name: deal_created_at
+        description: "add_time rows only: the creation time. 5 deals have two (D3, two lifecycles)."
+      - name: owner_user_id
+        description: "user_id rows only: the new owner of the deal."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_pipedrive__users')
+                field: user_id
+      - name: stage_id
+        description: "stage_id rows only: the stage the deal moved into (1 to 9)."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_pipedrive__stages')
+                field: stage_id
+      - name: lost_reason_id
+        description: "lost_reason rows only: the option id of the lost reason (1 to 5). Every deal has one (D4): not a deal outcome."
+        data_tests:
+          - dbt_utils.relationships_where:
+              arguments:
+                to: ref('stg_pipedrive__field_options')
+                field: option_id
+                to_condition: "field_key = 'lost_reason'"
+
+  - name: stg_pipedrive__activity
+    description: >
+      One row per activity (logical entity ACTIVITY): 4,568 rows on 2026-10-24. The 11 activity_ids that the source
+      repeats (A1, 22 rows) keep the row with the latest due_at (decided 2026-10-23), so 11 rows are removed.
+      deal_id matches the deal history for only 8 activities (A2): calls are counted by due month, not per funnel deal.
+    config:
+      meta:
+        grain: "activity_id"
+        primary_key: [activity_id]
+    columns:
+      - name: activity_id
+        description: "Primary key, unique after the deduplication."
+        data_tests: [unique, not_null]
+      - name: activity_type
+        description: "Key string of the type: meeting = Sales Call 1 (step 2.1), sc_2 = Sales Call 2 (step 3.1)."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_pipedrive__activity_types')
+                field: activity_type
+      - name: assigned_user_id
+        description: "The user who owns the activity."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_pipedrive__users')
+                field: user_id
+      - name: deal_id
+        description: "The deal the activity is planned against; intended link to the deal history, 8 of 4,568 match (A2)."
+        data_tests: [not_null]
+      - name: is_done
+        description: "Marked as done; about 50% for every type (A4). Whether steps 2.1 and 3.1 count only done calls is open."
+        data_tests: [not_null]
+      - name: due_at
+        description: "Planned date and time; the month of the call in the report. Last value 2024-09-13 (X1)."
+        data_tests: [not_null]
+
+  - name: stg_pipedrive__activity_types
+    description: "One row per activity type (logical entity ACTIVITY_TYPE): 4 rows. is_active replaces the text flag 'Yes' / 'No' (T1)."
+    config:
+      meta:
+        grain: "activity_type"
+        primary_key: [activity_type]
+    columns:
+      - name: activity_type_id
+        description: "Surrogate id of the type; nothing references it."
+        data_tests: [unique, not_null]
+      - name: activity_type_name
+        description: "Display name: Sales Call 1, Sales Call 2, Follow Up Call, After Close Call."
+      - name: activity_type
+        description: "Key string that activities reference; the join key."
+        data_tests: [unique, not_null]
+      - name: is_active
+        description: "Whether the type can be chosen for new activities. Follow Up Call is inactive but keeps 1,133 activities (T1)."
+        data_tests: [not_null]
+
+  - name: stg_pipedrive__stages
+    description: "One row per pipeline stage (logical entity STAGE): 9 rows, stage_id 1 to 9 = funnel steps 1 to 9. Source spelling kept (S1)."
+    config:
+      meta:
+        grain: "stage_id"
+        primary_key: [stage_id]
+    columns:
+      - name: stage_id
+        description: "Stage id 1 to 9, also the funnel order (the export has no order_nr)."
+        data_tests:
+          - unique
+          - not_null
+          - accepted_values:
+              arguments: { values: [1, 2, 3, 4, 5, 6, 7, 8, 9] }
+      - name: stage_name
+        description: "Name as set by the CRM admin; stage 2 reads 'Qualified lead' (fields: 'Qualified Lead', S1)."
+        data_tests: [not_null]
+
+  - name: stg_pipedrive__field_options
+    description: >
+      One row per option of a single-option deal field (logical entities FIELD_OPTION and LOST_REASON), unpacked from
+      fields.field_value_options: 9 stage labels and 5 lost reasons, 14 rows. Fields without options (add_time, user_id) have none.
+    config:
+      meta:
+        grain: "field_key, option_id"
+        primary_key: [field_key, option_id]
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments: { combination_of_columns: [field_key, option_id] }
+    columns:
+      - name: field_key
+        description: "stage_id or lost_reason."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments: { values: [stage_id, lost_reason] }
+      - name: field_name
+        description: "Display name of the field: Stage, Lost reason."
+      - name: option_id
+        description: "Option id: the stage id for stage_id, the lost-reason id for lost_reason."
+        data_tests: [not_null]
+      - name: option_label
+        description: "Option label; the lost reasons are Customer Not Ready, Pricing Issues, Unreachable Customer, Product Mismatch, Duplicate Entry."
+        data_tests: [not_null]
+
+  - name: stg_pipedrive__users
+    description: "One row per CRM user, current state only (logical entity USER): 1,787 rows. Not a sales-team shape (U2); never join on email (U1)."
+    config:
+      meta:
+        grain: "user_id"
+        primary_key: [user_id]
+    columns:
+      - name: user_id
+        description: "User id; deal owners (stg_pipedrive__deal_changes.owner_user_id) and activity owners refer to it."
+        data_tests: [unique, not_null]
+      - name: user_name
+        description: "Full name; 21 names are shared by 42 users."
+      - name: email
+        description: "Email; 4 are shared by two users (U1), tested on the source. Not a key."
+      - name: modified_at
+        description: "Last change of the user record; latest 2024-10-28 (X1)."

@@ -1,0 +1,118 @@
+version: 2
+
+# Intermediate: one business rule or one grain change per model (vault/project/model_plan.md).
+# Tests at error, tag dq_intermediate (dbt_project.yml). Counts measured on 2026-10-24.
+
+models:
+  - name: int_pipedrive__deals
+    description: >
+      One row per deal, derived from the change history (there is no deals table): 1,995 deals. created_at is the first
+      add_time; first and last owner; last lost reason (every deal has one, D4: not an outcome). Flags for the known
+      issues: has_skipped_stage (D1, 1,684), is_after_sale_without_closing (D2, 683), has_two_lifecycles (D3, 5).
+    config:
+      meta: { grain: deal_id, primary_key: [deal_id] }
+    columns:
+      - name: deal_id
+        data_tests: [unique, not_null]
+      - name: created_at
+        description: "First creation time; for the 5 two-lifecycle deals the first of two."
+        data_tests: [not_null]
+      - name: first_owner_user_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: { to: ref('stg_pipedrive__users'), field: user_id }
+      - name: last_owner_user_id
+        description: "Owner after the last owner change; users holds only the current state, so the history is here."
+      - name: first_stage_id
+        description: "Stage of the first recorded stage move: 1 for every deal (step 1 relies on it)."
+        data_tests:
+          - accepted_values:
+              arguments: { values: [1] }
+      - name: first_stage_entered_at
+        description: "First entry into stage 1, the date of step 1 by default (var step_1_date)."
+      - name: highest_stage_id
+        description: "Furthest stage recorded; the backfill fills stages 1 to this one."
+      - name: has_skipped_stage
+        description: "D1: fewer recorded stages than the highest stage."
+      - name: is_after_sale_without_closing
+        description: "D2: reached stage 7 to 9 without a recorded Closing; the backfill counts it under Closing."
+      - name: has_two_lifecycles
+        description: "D3: two creation events under one deal_id; the funnel counts the deal once, by its first entries."
+
+  - name: int_pipedrive__deal_stage_entries
+    description: "One row per deal and recorded stage, dated by the first entry: 8,891 rows (8,906 stage moves; 15 re-entries of a stage already entered count once)."
+    config:
+      meta: { grain: "deal_id, stage_id", primary_key: [deal_id, stage_id] }
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments: { combination_of_columns: [deal_id, stage_id] }
+    columns:
+      - name: stage_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: { to: ref('stg_pipedrive__stages'), field: stage_id }
+      - name: entered_at
+        data_tests: [not_null]
+
+  - name: int_pipedrive__deal_stage_entries_backfilled
+    description: >
+      One row per deal and every stage from 1 to the highest it reached (decided: a skipped stage counts as reached).
+      Inferred rows (is_inferred) are dated at the first recorded entry of a higher stage. Deals per stage:
+      1,995 / 1,990 / 1,951 / 1,862 / 1,693 / 1,424 / 1,081 / 723 / 324 (stages 1 to 9), as reconciled in model_plan.md.
+    config:
+      meta: { grain: "deal_id, stage_id", primary_key: [deal_id, stage_id] }
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments: { combination_of_columns: [deal_id, stage_id] }
+    columns:
+      - name: stage_id
+        data_tests: [not_null]
+      - name: entered_at
+        description: "Recorded entry, or for an inferred stage the first recorded entry of a higher stage."
+        data_tests: [not_null]
+      - name: is_inferred
+        description: "True when the stage was skipped in the data and is counted as reached."
+        data_tests: [not_null]
+
+  - name: int_pipedrive__sales_calls
+    description: >
+      One row per call of the two funnel call types: Sales Call 1 (meeting, step 2.1, 1,142 calls, 566 done) and Sales
+      Call 2 (sc_2, step 3.1, 1,120 calls, 558 done). deal_id is kept but matches the deal history only 8 times (A2).
+    config:
+      meta: { grain: activity_id, primary_key: [activity_id] }
+    columns:
+      - name: activity_id
+        data_tests: [unique, not_null]
+      - name: funnel_step
+        data_tests:
+          - accepted_values:
+              arguments: { values: ['2.1', '3.1'] }
+      - name: is_done
+        data_tests: [not_null]
+
+unit_tests:
+  - name: backfill_dates_skipped_stages_at_the_next_recorded_entry
+    description: "A deal recorded at stages 1 and 4 reaches 2 and 3 as inferred, dated at its stage-4 entry."
+    model: int_pipedrive__deal_stage_entries_backfilled
+    overrides:
+      vars: { funnel_backfill_skipped_stages: true }
+    given:
+      - input: ref('int_pipedrive__deal_stage_entries')
+        rows:
+          - { deal_id: 1, stage_id: 1, entered_at: '2024-01-01 10:00:00', is_inferred: false }
+          - { deal_id: 1, stage_id: 4, entered_at: '2024-02-01 10:00:00', is_inferred: false }
+      - input: ref('stg_pipedrive__stages')
+        rows:
+          - { stage_id: 1 }
+          - { stage_id: 2 }
+          - { stage_id: 3 }
+          - { stage_id: 4 }
+          - { stage_id: 5 }
+    expect:
+      rows:
+        - { deal_id: 1, stage_id: 1, entered_at: '2024-01-01 10:00:00', is_inferred: false }
+        - { deal_id: 1, stage_id: 2, entered_at: '2024-02-01 10:00:00', is_inferred: true }
+        - { deal_id: 1, stage_id: 3, entered_at: '2024-02-01 10:00:00', is_inferred: true }
+        - { deal_id: 1, stage_id: 4, entered_at: '2024-02-01 10:00:00', is_inferred: false }
