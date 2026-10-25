@@ -1,5 +1,9 @@
 -- One row per deal (DEAL and OWNER_ASSIGNMENT in the logical model): there is no deals table, so the deal is derived
 -- from its change history. Flags D1 to D3 make the known issues filterable per deal.
+-- D3 (has_two_lifecycles): 5 deals carry two creation events — likely a Pipedrive merge where the surviving deal
+-- inherits the merged deal's history. Each lifecycle has its own owners and stage path. The funnel counts such a
+-- deal once per stage (by first entry). Per-user slicing should count the deal for each lifecycle's owner; the
+-- users export has no role/team column, so the sales-vs-onboarding split needs a stakeholder conversation.
 
 -- the typed change log
 with changes as (

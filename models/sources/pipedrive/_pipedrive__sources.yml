@@ -58,7 +58,15 @@ sources:
                 meta: { issue: DUP-1, owner: data_team, quality_dimension: uniqueness }
           - dbt_utils.unique_combination_of_columns:
               name: d3_two_creations_per_deal
-              description: "Found (EDA 01 §6b, 00 D3): some deal_ids hold two creation events, two overlapping lifecycles like a merged duplicate lead. Improve (CRM admin): split or merge such deals in the CRM. Handled: int_pipedrive__deals takes the first creation and flags has_two_lifecycles; the funnel counts each stage once, by its first entry."
+              description: >-
+                Found (EDA 01 §6b, 00 D3): 5 deal_ids hold two creation events with different timestamps, owners and stage paths.
+                Assumption: Pipedrive merge — when a rep merges two duplicate deals, the surviving deal keeps its id but inherits
+                the merged deal's history, so two add_time events appear under one id.
+                Improve (CRM admin): prevent merges that produce ambiguous history, or export the merge record.
+                Handled: int_pipedrive__deals takes the first creation and flags has_two_lifecycles; the funnel counts each deal_id
+                once per stage (first entry). For per-user reporting the deal should be counted for each owner's lifecycle — this
+                decision requires a stakeholder conversation (the users export has no role or team, so sales vs onboarding cannot
+                be distinguished from this data alone).
               arguments: { combination_of_columns: [deal_id] }
               config:
                 where: "changed_field_key = 'add_time'"

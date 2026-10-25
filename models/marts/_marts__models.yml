@@ -146,6 +146,6 @@ models:
       - name: is_after_sale_without_closing
         description: "D2."
       - name: has_two_lifecycles
-        description: "D3."
+        description: "D3: two creation events under one deal_id (likely a Pipedrive merge). Per-user reporting should count the deal for each lifecycle's owner — needs a stakeholder decision."
       - name: is_duplicate_entry
         description: "DUP-6: lost reason Duplicate Entry; excluded from the funnel report."

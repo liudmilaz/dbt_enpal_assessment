@@ -59,8 +59,13 @@ from enpal_raw.pipedrive.deal_changes
 where changed_field_key = 'add_time'
 group by 1
 having count(*) > 1;
--- 5 deals; they explain all 8 backward stage moves and the 5 deals with two lost reasons
--- Model: count each deal once per step, by its first entry.
+-- 5 deals; they explain all 8 backward stage moves and the 5 deals with two lost reasons.
+-- Assumption: Pipedrive merge — the surviving deal inherits the merged deal's history (two add_time events,
+-- different owners and stage paths per lifecycle). The users export has no role/team column.
+-- Model: the funnel counts each deal once per stage, by its first entry (dedup at the final aggregation level).
+-- For per-user reporting the deal should be counted for each lifecycle's owner (sales rep or onboarding team),
+-- but whether users are sales or onboarding cannot be determined from this export — this decision requires a
+-- stakeholder conversation.
 
 -- D4. A lost reason on every deal, unrelated to how far it got (process).
 with highest as (  -- the furthest stage each deal reached
