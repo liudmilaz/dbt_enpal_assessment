@@ -4,7 +4,7 @@ The assignment ships a local Postgres in Docker. Enpal agreed that this solution
 
 ## Result
 
-`MARTS.rep_sales_funnel_monthly(month, kpi_name, funnel_step, deals_count)`: one row per month and funnel step, 2024-01 to 2025-02, zero-filled (154 rows). Contract enforced.
+`MARTS.rep_sales_funnel_monthly(month, kpi_name, funnel_step, deals_count)`: one row per month and funnel step, 2024-01 to 2025-02, zero-filled (154 rows). Contract enforced. Built for self-service reporting by month; quarters, weeks or years belong to a semantic layer or BI tool on the event grain, because the call steps 2.1 and 3.1 count distinct deal ids per month and do not add up across months.
 
 | Step | Counted as | Total deals in the window |
 |---|---|---|
@@ -18,7 +18,7 @@ ENPAL_RAW.PIPEDRIVE        6 CSVs, loaded once (scripts/snowflake_load.sql); dbt
   -> ENPAL_TEST.SRC        zero-copy clones (dbt run-operation refresh_src) - default target `test`
   -> STAGING               stg_pipedrive__*  one view per raw table: rename, cast, deduplicate
   -> INTERMEDIATE          int_pipedrive__deals, __deal_stage_entries(_backfilled), __funnel_steps, __sales_calls
-  -> MARTS                 dim_funnel_step, rep_sales_funnel_monthly, fct_deals
+  -> MARTS                 dim_funnel_step, rep_sales_funnel_monthly
 ENPAL_ANALYTICS_PROD       same layers, target `prod`, built from main only, reads ENPAL_RAW directly
 ```
 

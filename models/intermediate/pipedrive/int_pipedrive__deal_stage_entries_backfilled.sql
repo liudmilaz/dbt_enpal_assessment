@@ -1,6 +1,6 @@
 -- One row per deal and every stage from 1 to the highest stage it reached (STAGE_ENTRY in the logical model).
 -- Deals skip stages (D1): a skipped stage counts as reached (decided by the owner), flagged is_inferred and
--- dated at the first recorded entry of a higher stage. Downstream consumers filter on is_inferred if needed;
+-- dated at the earliest recorded entry of any higher stage. Downstream consumers filter on is_inferred if needed;
 -- for recorded-only entries use int_pipedrive__deal_stage_entries directly.
 
 -- recorded entries
@@ -43,13 +43,14 @@ with_recorded as (
         and r.stage_id = e.stage_id
 ),
 
--- the next recorded entry of a higher stage: proves this stage was passed
+-- the earliest recorded entry of any higher stage: the first proof that this stage was passed
+-- (by time, not by stage order, so a re-opened deal (D3) does not move the date later)
 dated as (
     select
         deal_id,
         stage_id,
         recorded_at,
-        first_value(recorded_at ignore nulls) over (
+        min(recorded_at) over (
             partition by deal_id
             order by stage_id
             rows between 1 following and unbounded following

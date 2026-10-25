@@ -1,9 +1,9 @@
-# Lightdash: Deals Overview dashboard
+# Lightdash: Sales Funnel dashboard
 
-The funnel dashboard on the dbt marts `fct_deals` and `rep_sales_funnel_monthly`, laid out like a CRM "Deals Overview": conversion gauge, big numbers (closed deals, new leads, average sales cycle), a monthly trend and two funnels. Data quality is not shown here: it lives in the Elementary report (`scripts/dq_report.sh`).
+The funnel dashboard on the dbt mart `rep_sales_funnel_monthly`: a monthly trend and two funnels (the nine stages, and all eleven task steps). Data quality is not shown here: it lives in the Elementary report (`scripts/dq_report.sh`).
 
-- The export has no won/lost status and no amounts: "closed" means the deal reached Closing (stage 6); the amount tiles of a usual CRM dashboard are replaced by new leads and by the funnel of all eleven task steps.
-- Metrics and joins are defined in `models/marts/_marts__models.yml` (`meta`): `leads`, `closed_deals`, `conversion_rate`, `avg_sales_cycle_days`, `total_deals`.
+- The mart is monthly, for self-service reporting by month. Quarters, weeks or years need the event grain in a semantic layer: the call steps 2.1 and 3.1 count distinct deal ids per month and must not be summed across months, so the `month` dimension offers MONTH only.
+- The metric `total_deals` and the join to `dim_funnel_step` (step order) are defined in `models/marts/_marts__models.yml` (`meta`).
 
 Setup (self-hosted Lightdash on http://localhost:8080):
 

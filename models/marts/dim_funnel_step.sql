@@ -5,6 +5,5 @@ select
     kpi_name,
     source_type,
     stage_id,
-    activity_type,
     sort_order
 from {{ ref('int_pipedrive__funnel_steps') }}

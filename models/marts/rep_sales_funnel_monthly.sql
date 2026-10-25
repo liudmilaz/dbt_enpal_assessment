@@ -9,8 +9,7 @@ with steps as (
     select
         funnel_step,
         kpi_name,
-        stage_id,
-        sort_order
+        stage_id
     from {{ ref('dim_funnel_step') }}
 ),
 
@@ -91,20 +90,12 @@ report_window as (
     from step_counts
 ),
 
--- month offsets 0 to 119: up to ten years of months
-month_offsets as (
-    select
-        row_number() over (order by seq4()) - 1 as month_offset
-    from table(generator(rowcount => 120))
-),
-
--- one row per month of the report window
+-- one row per month of the report window, sized by the number of months in it
 months as (
     select
-        dateadd(month, o.month_offset, w.first_month) as month
-    from month_offsets o
-    cross join report_window w
-    where dateadd(month, o.month_offset, w.first_month) <= w.last_month  -- stop at the last month with data
+        dateadd(month, o.value::integer, w.first_month) as month
+    from report_window w
+    inner join lateral flatten(input => array_generate_range(0, datediff(month, w.first_month, w.last_month) + 1)) o
 )
 
 -- every month and step, zero-filled
@@ -118,6 +109,3 @@ cross join steps s
 left join step_counts c
     on c.month = m.month
     and c.funnel_step = s.funnel_step
-order by
-    m.month,
-    s.sort_order
