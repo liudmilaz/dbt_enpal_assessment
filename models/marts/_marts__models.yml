@@ -132,8 +132,8 @@ models:
       - name: is_closed
         description: "Reached Closing: the closest the export gets to a won deal."
         data_tests: [not_null]
-      - name: is_closing_inferred
-        description: "Closing was skipped in the data and is counted as reached (D2)."
+      - name: is_inferred
+        description: "True when the stage was skipped in the data and is counted as reached. On fct_deals this applies to Closing (stage 6)."
       - name: days_lead_to_closing
         description: "Days from the first entry into stage 1 to Closing. The timing is generated (D5): read it as an illustration."
         data_tests:

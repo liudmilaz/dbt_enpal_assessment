@@ -21,7 +21,7 @@ closings as (
     select
         deal_id,
         entered_at as closing_entered_at,
-        is_inferred as is_closing_inferred
+        is_inferred
     from {{ ref('int_pipedrive__deal_stage_entries_backfilled') }}
     where stage_id = 6  -- Closing
 )
@@ -35,7 +35,7 @@ select
     c.closing_entered_at,
     date_trunc('month', c.closing_entered_at)::date as closing_month,
     c.closing_entered_at is not null as is_closed,
-    c.is_closing_inferred,
+    c.is_inferred,
     datediff('day', d.first_stage_entered_at, c.closing_entered_at) as days_lead_to_closing,
     d.has_skipped_stage,
     d.is_after_sale_without_closing,
