@@ -1,5 +1,5 @@
 {{ config(
-    meta={'quality_dimension': 'accuracy', 'description': 'Per stage step, the monthly counts of the report add up to the deals that reached the stage in the report window (each deal counts once per stage, in the month of its first entry).'}
+    meta={'quality_dimension': 'accuracy', 'description': 'Per stage step, the monthly counts of the report add up to the deals that reached the stage (each deal counts once per stage, in the month of its first entry).'}
 ) }}
 
 -- the report's total per stage step
@@ -15,7 +15,7 @@ with report_totals as (
     group by r.funnel_step
 ),
 
--- distinct deals per stage whose first entry falls in the report window
+-- distinct deals per stage; the report window spans every month with data, so no date filter
 entry_totals as (
     select
         s.funnel_step,
@@ -26,8 +26,7 @@ entry_totals as (
     -- match the report's DUP-6 exclusion (filtered in int_pipedrive__deals)
     inner join {{ ref('int_pipedrive__deals') }} d
         on d.deal_id = e.deal_id
-    where date_trunc('month', e.entered_at) between '{{ var("report_start_month") }}' and '{{ var("report_end_month") }}'
-        {% if var('step_1_date') == 'created' %}and s.stage_id <> 1{% endif %}
+    {% if var('step_1_date') == 'created' %}where s.stage_id <> 1{% endif %}
     group by s.funnel_step
 )
 

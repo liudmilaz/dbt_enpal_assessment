@@ -74,8 +74,6 @@ data_tests:
 vars:
   # Funnel rules (vault/project/model_plan.md). Open decisions set to Claude's recommendation:
   step_1_date: stage_entry               # open: 'stage_entry' (first entry into stage 1) or 'created' (add_time)
-  report_start_month: '2024-01-01'       # open: report window, months with stage events
-  report_end_month: '2025-02-01'
   raw_location:
     test: { database: ENPAL_TEST, schema: SRC }
     prod: { database: ENPAL_RAW, schema: PIPEDRIVE }

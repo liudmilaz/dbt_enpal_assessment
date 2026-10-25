@@ -47,7 +47,7 @@ ENPAL_ANALYTICS_PROD       same layers, target `prod`, built from main only, rea
 | Calls vs deals | calls counted per month by their own `deal_id` | only 8 of 4,579 activities link to a deal in the history, so they cannot be attached to the funnel deals |
 | Two lifecycles in one deal (5 deals) | counted once per step, by the first entry | |
 | Repeated `activity_id` (11 ids) | `activity_id` is the key; the latest `due_to` per id is kept (4,579 to 4,568) | |
-| Report window | 2024-01 to 2025-02 (`report_start_month`, `report_end_month`) | months with stage events; calls and new deals stop on 2024-09-13 (the exports end on different dates) |
+| Report window | from the first to the last month with any funnel step in the data (2024-01 to 2025-02 in this export) | no hardcoded dates; calls and new deals stop on 2024-09-13 (the exports end on different dates), so steps 2.1 and 3.1 are 0 after |
 | Names | `kpi_name` = the task's step name, `funnel_step` = step number as text (`'2.1'`) | the CRM spells one stage differently |
 
 The open questions for the business (KPI owner, CRM admin) and the evidence behind every finding are in `vault/` (documentation PR) and `analyses/` (one exploratory file per raw table, with results under each query).

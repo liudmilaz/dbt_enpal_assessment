@@ -1,23 +1,10 @@
 -- One row per month and funnel step (FUNNEL_MONTH in the logical model): the number of deals that reached the step in
 -- that month. Stage steps: distinct deals whose first entry into the stage (recorded or inferred, D1) falls in the
 -- month. Call steps 2.1 and 3.1: distinct deal ids with a done call of that type due in the month (A2: these ids are
--- not the funnel deals). Months without deals show 0.
--- Open decisions with defaults as vars (vault/project/NOTES.md): step_1_date, report window.
+-- not the funnel deals). The report runs from the first to the last month with any step in the data; months
+-- without deals show 0. Open decision with a default as var (vault/project/NOTES.md): step_1_date.
 
--- one row per month of the report window
-with months as (
-    select
-        dateadd(month, g.month_offset, to_date('{{ var("report_start_month") }}')) as month
-    from (
-        select
-            row_number() over (order by seq4()) - 1 as month_offset
-        from table(generator(rowcount => 120))
-    ) g
-    where dateadd(month, g.month_offset, to_date('{{ var("report_start_month") }}'))
-        <= to_date('{{ var("report_end_month") }}')  -- stop at the last month of the window
-),
-
-steps as (
+with steps as (
     select
         funnel_step,
         kpi_name,
@@ -101,6 +88,30 @@ step_counts as (
         month,
         deals_count
     from call_counts
+),
+
+-- the report window: the first and the last month with any step in the data
+report_window as (
+    select
+        min(month) as first_month,
+        max(month) as last_month
+    from step_counts
+),
+
+-- month offsets 0 to 119: up to ten years of months
+month_offsets as (
+    select
+        row_number() over (order by seq4()) - 1 as month_offset
+    from table(generator(rowcount => 120))
+),
+
+-- one row per month of the report window
+months as (
+    select
+        dateadd(month, o.month_offset, w.first_month) as month
+    from month_offsets o
+    cross join report_window w
+    where dateadd(month, o.month_offset, w.first_month) <= w.last_month  -- stop at the last month with data
 )
 
 -- every month and step, zero-filled
