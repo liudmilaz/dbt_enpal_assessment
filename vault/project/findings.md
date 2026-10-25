@@ -42,7 +42,7 @@ Every per-table file has the same sections: 1 rows and columns, 2 primary key (r
 ## 03_activity_types.sql: `activity_types` (dictionary, 4 rows)
 - **Primary key:** `id`, given by the task, unique and not null. `type` is also unique and is the column activities reference. **Foreign keys:** none (referenced by `activity.type`, 4 of 4 types used). **Nulls:** none. **Outliers:** not applicable.
 - **Descriptive:** `follow_up` is inactive yet used by 1,133 activities; `after_close_call` is not a funnel step.
-- **Consequence:** staging lookup keyed on `type`; Sales Call 1 and 2 come from the seed mapping.
+- **Consequence:** staging lookup keyed on `type`; Sales Call 1 and 2 are mapped to steps 2.1 and 3.1 in `int_pipedrive__funnel_steps`.
 
 ## 04_users.sql: `users` (dictionary, 1,787 rows)
 - **Primary key:** `id`, given by the task, unique and not null. `email` is not a key. **Foreign keys:** none (referenced by `activity.assigned_to_user` and the owner events). **Nulls:** none. **Outliers:** none in `modified`.
@@ -52,7 +52,7 @@ Every per-table file has the same sections: 1 rows and columns, 2 primary key (r
 ## 05_stages.sql: `stages` (dictionary, 9 rows)
 - **Primary key:** `stage_id`, given by the task, unique and not null. **Foreign keys:** none (referenced by the stage events, 9 of 9 used). **Nulls:** none. **Outliers:** not applicable.
 - **Descriptive:** the second stage is spelled "Qualified lead" here and "Qualified Lead" in `fields`. The order of `stage_id` is the funnel order.
-- **Consequence:** step names come from a seed using the task's spelling.
+- **Consequence:** step names come from the Stage field labels, which use the task's spelling; tests pin them.
 
 ## 06_fields.sql: `fields` (dictionary, 4 rows)
 - **Primary key:** `id`, given by the task, unique and not null. `field_key` is also unique and is the column `deal_changes` references. **Foreign keys:** none. **Nulls:** only `field_value_options`, 2 of 4 rows (`user_id` and `add_time` have no option list; not applicable). **Outliers:** not applicable.

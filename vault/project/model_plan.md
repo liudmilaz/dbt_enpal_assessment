@@ -8,7 +8,7 @@ The entities, keys and relationships the models implement are in [[logical_model
 
 ## Layout
 
-`dbt_project.yml` sets `+schema: pipedrive_analytics` and `+materialized: table` for the whole project; override per folder: staging and intermediate as views, marts as tables. YAML next to the models, prefixed with an underscore (`_pipedrive__sources.yml`, `_stg_pipedrive__models.yml`, ...). Sources are declared in `models/staging/pipedrive/_pipedrive__sources.yml` (`postgres_public`).
+`dbt_project.yml` sets one schema per layer (`STAGING`, `INTERMEDIATE`, `MARTS`, `ELEMENTARY`) through `macros/generate_schema_name.sql`, with staging and intermediate as views and marts as tables. YAML next to the models, prefixed with an underscore (`_stg_pipedrive__models.yml`, `_int_pipedrive__models.yml`, `_marts__models.yml`). Sources are declared in `models/sources/pipedrive/_pipedrive__sources.yml` (source name `pipedrive`), so the raw tests can be configured per folder.
 
 ## Staging (view, one model per raw table, rename and cast only)
 
@@ -27,14 +27,14 @@ The entities, keys and relationships the models implement are in [[logical_model
 |---|---|---|---|
 | `int_pipedrive__deals` | one row per deal | `deal_id` unique, not null | `created_at` = earliest `add_time`; first and last owner; latest `lost_reason`; `has_two_lifecycles` when more than one `add_time`; one row for each of the 1,995 deals |
 | `int_pipedrive__deal_stage_entries` | one deal at one stage (recorded) | (`deal_id`, `stage_id`) | `entered_at` = `min(change_time)` of the stage events; `is_inferred` = false; use `min() group by`, no self joins |
-| `int_pipedrive__deal_stage_entries_backfilled` | one deal at one stage reached (recorded and inferred) | (`deal_id`, `stage_id`) | stages 1 to the highest stage the deal reached; inferred rows get `entered_at` = earliest recorded entry of a higher stage and `is_inferred` = true. Controlled by var `funnel_backfill_skipped_stages` (default true, decided) |
+| `int_pipedrive__deal_stage_entries_backfilled` | one deal at one stage reached (recorded and inferred) | (`deal_id`, `stage_id`) | stages 1 to the highest stage the deal reached; inferred rows get `entered_at` = earliest recorded entry of a higher stage and `is_inferred` = true. Always on (decided); recorded-only entries are in `int_pipedrive__deal_stage_entries`. |
 | `int_pipedrive__sales_calls` | one activity | `activity_id` | only `meeting` (Sales Call 1) and `sc_2` (Sales Call 2); funnel step from the step mapping; `is_done`, `due_at`, `deal_id` |
 
 ## Marts (table)
 
 | Model | Grain | Key | Notes |
 |---|---|---|---|
-| `dim_funnel_step` (seed `funnel_steps.csv` plus model) | one funnel step | `funnel_step` | 11 rows: 1, 2, 2.1, 3, 3.1, 4 to 9. Columns: `funnel_step` (text), `kpi_name`, `source_type` (`stage` or `activity`), `stage_id` or `activity_type`, `sort_order`. Step names are the task's: Lead Generation, Qualified Lead, Sales Call 1, Needs Assessment, Sales Call 2, Proposal/Quote Preparation, Negotiation, Closing, Implementation/Onboarding, Follow-up/Customer Success, Renewal/Expansion |
+| `dim_funnel_step` (from `int_pipedrive__funnel_steps`: stages with their Stage field labels, plus the two call types) | one funnel step | `funnel_step` | 11 rows: 1, 2, 2.1, 3, 3.1, 4 to 9. Columns: `funnel_step` (text), `kpi_name`, `source_type` (`stage` or `activity`), `stage_id` or `activity_type`, `sort_order`. Step names are the task's: Lead Generation, Qualified Lead, Sales Call 1, Needs Assessment, Sales Call 2, Proposal/Quote Preparation, Negotiation, Closing, Implementation/Onboarding, Follow-up/Customer Success, Renewal/Expansion |
 | `fct_deal_stage_entries` | one deal at one stage | (`deal_id`, `stage_id`) | the chosen int model plus keys to `dim_funnel_step` (optional; the report may read the intermediate directly) |
 | `fct_sales_calls` | one activity | `activity_id` | optional wrapper over the int model |
 | `rep_sales_funnel_monthly` | one funnel step in one month | (`month`, `funnel_step`) unique | contract enforced; columns exactly `month` (date, first day of the month), `kpi_name`, `funnel_step`, `deals_count` (integer) |
@@ -43,7 +43,7 @@ The entities, keys and relationships the models implement are in [[logical_model
 
 - **Stage steps (1, 2, 3, 4, 5, 6, 7, 8, 9):** `deals_count` = `count(distinct deal_id)` whose first entry into that stage falls in the month (event cohort, not cumulative). With backfill on, inferred entries count and are dated as described above. A deal with two lifecycles counts once per step, by its first entry.
 - **Step 1:** first entry into stage 1 (*open*; alternative is `add_time`).
-- **Steps 2.1 and 3.1:** `count(distinct deal_id)` over `activity` rows of type `meeting` (2.1) and `sc_2` (3.1) with `done = true`, by month of `due_at` (*open*; var `calls_done_only`, default true). These `deal_id`s do not match the deal history, so the figure is "distinct deal ids with a call due in the month", not a subset of the funnel deals.
+- **Steps 2.1 and 3.1:** `count(distinct deal_id)` over `activity` rows of type `meeting` (2.1) and `sc_2` (3.1) with `done = true`, by month of `due_at` (decided: done calls only). These `deal_id`s do not match the deal history, so the figure is "distinct deal ids with a call due in the month", not a subset of the funnel deals.
 - **Month spine:** one row per month and funnel step from 2024-01 to 2025-02 (*proposed*), zero-filled with a left join from a bounded spine; the calls are 0 from 2024-10 because activity ends 2024-09-13.
 - Convention: write the grain of every model in its description; ratios are never stored.
 
@@ -57,7 +57,7 @@ Start from the primary and foreign key tables in `vault/project/findings.md` (se
 
 - Staging: keys `unique`/`not_null`, `accepted_values` (event key, stage ids 1 to 9), `relationships` (stage and owner ids, assignee, activity type), the full-grain `unique_combination_of_columns` on `deal_changes` (catches a double load), email uniqueness at warn.
 - Intermediate: `unique` on `deal_id` and on (`deal_id`, `stage_id`); first stage is 1; no stage event before creation.
-- Marts: `unique_combination_of_columns [month, funnel_step]`, `deals_count >= 0`, `relationships` of `funnel_step` to `dim_funnel_step`, singular reconciliations: step 1 total equals distinct deals; monthly sums equal the totals above; with `calls_done_only` off the call totals rise.
+- Marts: `unique_combination_of_columns [month, funnel_step]`, `deals_count >= 0`, `relationships` of `funnel_step` to `dim_funnel_step`, singular reconciliations: step 1 total equals distinct deals; monthly sums equal the totals above.
 - One unit test on the activity de-duplication or the backfill rule.
 
 ## Efficiency notes for the README

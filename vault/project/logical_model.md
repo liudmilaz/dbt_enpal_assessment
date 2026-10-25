@@ -111,5 +111,5 @@ erDiagram
 | Activity type : activity | 1 to many | 1,124 to 1,177 per type; type key is 1 to 1 with the id | Join on the key string `type` |
 | User : activity | 1 to many (optional) | 1,650 users, 1 to 11 each | `relationships` test |
 | Deal : activity | intended 1 to many, not supported | 8 of 4,579 match | Calls counted by due month, not per funnel deal |
-| Funnel step : stage / activity type | 1 to 1 (one or the other) | 9 stage steps, 2 call steps | `dim_funnel_step` seed with `source_type` |
+| Funnel step : stage / activity type | 1 to 1 (one or the other) | 9 stage steps, 2 call steps | `int_pipedrive__funnel_steps` / `dim_funnel_step` with `source_type` |
 | Funnel step : funnel month | 1 to many | one row per month and step | Report grain (`month`, `funnel_step`), unique |

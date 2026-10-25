@@ -6,6 +6,8 @@ tags:
 
 # Elementary report layout: tracking the data quality issues
 
+> **As built (2026-10-25):** the tests were reduced to keys (primary, alternate and foreign) and one singular test per discovered issue in `tests/data_quality/`, which returns the affected raw rows and fails (severity error) in the Elementary report. The anomaly and schema monitors below are not implemented; they are the next step together with source freshness and custom tests per business process, once the export is loaded on a schedule. See [[approach]].
+
 How the Elementary report should be organised so that every issue in [[cleansing_proposals]] and [[elementary_rollout]] can be followed run after run. Checked against the docs (docs.elementary-data.com) and the source code of the package `elementary-data/elementary` 0.26.1 and the CLI `elementary-data` 0.26.1 (2026-10-23).
 
 ## 1. Elementary test types (what each one watches)

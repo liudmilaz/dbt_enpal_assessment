@@ -16,14 +16,15 @@ Status: **built on 2026-10-24** (decisions below; as-built notes at the end). Th
 - `generate_schema_name`: one schema per layer, the same name in every environment; the database tells the environments apart.
 - Service user `SHINE_DBT_USER` (key pair, role `SHINE_DBT_ROLE`, no secondary roles).
 
-## 2. Target layout for Enpal (account UE17459)
+## 2. Target layout for Enpal
 
 | Database | Role in the flow | Built by | Reads |
 |---|---|---|---|
 | `ENPAL_RAW.PIPEDRIVE` | the six CSVs, loaded once, never modified | `scripts/snowflake_load.sql` (admin) | - |
 | `ENPAL_TEST` | **default target `test`**: zero-copy clones in `SRC` + `STAGING`, `INTERMEDIATE`, `MARTS`, `ELEMENTARY`; every change is deployed and tested here first | `dbt run-operation refresh_src`, then `dbt build` | `ENPAL_TEST.SRC` |
 | `ENPAL_ANALYTICS_PROD` | target `prod`, only from `main`, only after the test run is green and after triple confirmation | `dbt build --target prod` | `ENPAL_RAW.PIPEDRIVE` |
-| Postgres `public` | target `dev`: the task's deliverable, unchanged | `dbt build --target dev` | `postgres.public` |
+
+There is no Postgres target: the repository sent to Enpal is Snowflake-only (agreed with Enpal, see [[NOTES]]).
 
 `ENPAL_DB` (today's raw + Elementary + test_model) is dropped once the move is verified, with the owner's go.
 
@@ -31,10 +32,10 @@ Status: **built on 2026-10-24** (decisions below; as-built notes at the end). Th
 
 1. **Admin SQL** (ACCOUNTADMIN, `scripts/snowflake_admin.sql`): databases `ENPAL_RAW`, `ENPAL_TEST`, `ENPAL_ANALYTICS_PROD`; service user `ENPAL_DBT_USER` with a new key pair `~/.ssh/snowflake_enpal_dbt_rsa_key.p8`, default role `ENPAL_DBT_ROLE`, no secondary roles; `ENPAL_DBT_ROLE` gets read-only on `ENPAL_RAW` (usage + select, future grants) and ownership of `ENPAL_TEST` and `ENPAL_ANALYTICS_PROD`; `ENPAL_WH` stays (XS, 60 s).
 2. **Raw:** `scripts/snowflake_load.sql` loads into `ENPAL_RAW.PIPEDRIVE` (loader role, not the dbt role); row counts checked against Postgres.
-3. **profiles.yml:** outputs `test` (default, `ENPAL_TEST`), `prod` (`ENPAL_ANALYTICS_PROD`), `dev` (Postgres); same for the `elementary` profile. Account, user and key path from `~/.snowflake/enpal.env`.
+3. **profiles.yml:** outputs `test` (default, `ENPAL_TEST`) and `prod` (`ENPAL_ANALYTICS_PROD`); same for the `elementary` profile. Account, user and key path from `~/.snowflake/enpal.env`.
 4. **macros/refresh_src.sql:** clones the six tables `ENPAL_RAW.PIPEDRIVE.*` into `ENPAL_TEST.SRC` (same table names); `create or replace schema` first, so a refresh resets the test data; raises an error on `prod` and on Postgres.
-5. **Sources:** database and schema by `target.name` (vars in dbt_project.yml): `test` -> `ENPAL_TEST.SRC`, `prod` -> `ENPAL_RAW.PIPEDRIVE`, `dev` -> `postgres.public`. Column types stay by `target.type`.
-6. **macros/generate_schema_name.sql:** on Snowflake one schema per layer (`STAGING`, `INTERMEDIATE`, `MARTS`, `ELEMENTARY`), as in shine_test; on Postgres everything in `public_pipedrive_analytics`, as the task's README expects.
+5. **Sources:** database and schema by `target.name` (vars in dbt_project.yml): `test` -> `ENPAL_TEST.SRC`, `prod` -> `ENPAL_RAW.PIPEDRIVE`.
+6. **macros/generate_schema_name.sql:** one schema per layer (`STAGING`, `INTERMEDIATE`, `MARTS`, `ELEMENTARY`), as in shine_test.
 7. **dbt_project.yml:** folder configs staging and intermediate = view, marts = table, layer schemas.
 8. **scripts/dq_report.sh:** target `test` runs `refresh_src` first.
 9. **Verification:** `refresh_src`; `dbt build --target test` gives 71 tests, 53 pass, 18 warn, the same counts as Postgres; `show tables in ENPAL_TEST.SRC` shows clones (`bytes` 0 until data diverges).
@@ -50,29 +51,26 @@ Status: **built on 2026-10-24** (decisions below; as-built notes at the end). Th
 | DEAL_FIELD, FIELD_OPTION, LOST_REASON | `stg_pipedrive__field_options` (JSON unpacked; adapter macro: `jsonb_to_recordset` / `lateral flatten`) | staging |
 | USER | `stg_pipedrive__users` | staging |
 | DEAL, OWNER_ASSIGNMENT | `int_pipedrive__deals` (created_at, first and last owner, `has_two_lifecycles`, flags D1 to D3) | intermediate |
-| STAGE_ENTRY | `int_pipedrive__deal_stage_entries` (recorded) and `_backfilled` (`is_inferred`, var `funnel_backfill_skipped_stages`) | intermediate |
-| ACTIVITY (calls) | `int_pipedrive__sales_calls` (meeting, sc_2; var `calls_done_only`) | intermediate |
-| FUNNEL_STEP | seed `funnel_steps.csv` + `dim_funnel_step` | marts |
+| STAGE_ENTRY | `int_pipedrive__deal_stage_entries` (recorded) and `_backfilled` (`is_inferred`) | intermediate |
+| ACTIVITY (calls) | `int_pipedrive__sales_calls` (meeting, sc_2; done calls counted in the report) | intermediate |
+| FUNNEL_STEP | `int_pipedrive__funnel_steps` + `dim_funnel_step` | intermediate, marts |
 | FUNNEL_MONTH | `rep_sales_funnel_monthly` (contract: `month`, `kpi_name`, `funnel_step`, `deals_count`; month spine by `dbt_utils.date_spine`) | marts |
 
-Cycle for every model, in DAG order: write -> `dbt build --select <model>+ --target test` -> `dbt show` profiling (row count, keys, nulls, min/max) -> YAML tests (Tier 1 PK/FK, then the findings) -> reconcile with the expected totals in [[model_plan]] -> same build on `--target dev` (Postgres) to keep both warehouses equal.
+Cycle for every model, in DAG order: write -> `dbt build --select <model>+ --target test` -> `dbt show` profiling (row count, keys, nulls, min/max) -> YAML tests (Tier 1 PK/FK, then the findings) -> reconcile with the expected totals in [[model_plan]].
 
-SQL portable through dbt cross-database macros (`dbt.date_trunc`, `dbt.safe_cast`, `dbt.dateadd`, `dbt_utils.date_spine`) and one adapter-dispatched macro for the JSON unpack.
+SQL is plain Snowflake: `lateral flatten` for the JSON unpack, `qualify` for the deduplication, `generator` for the month spine.
 
 Before `rep_sales_funnel_monthly`: the open decisions in NOTES (step 1 date, done-only calls, two-lifecycle deals, report window, `kpi_name` format) need the owner's answer.
 
 ## 5. Open points for the owner
 
-1. Who writes the models: the standing rule says the owner writes them and Claude reviews and deploys to test.
-2. Default target `test` in the committed profiles.yml: Enpal's reviewers run Postgres, so their README step becomes `dbt build --target dev`.
-3. Admin SQL: run by Claude through the `ue17459` ACCOUNTADMIN connection, or by the owner in Snowsight (as for the INVENTED project).
-4. Drop `ENPAL_DB` after the move.
+All four points of this section were answered on 2026-10-24; the answers are the decisions below. Reviewers at Enpal run the project on Snowflake with the default target `test`, as the repo README describes.
 
 ## Decisions on the plan (owner, 2026-10-24)
 
 1. Claude writes the models, the owner reviews; notify at raw load (checkpoint 1) and at staging with tests (checkpoint 2). Default rule, written into the skills `dbt-snowflake-project-from-scratch` and `data-project-with-claude-code`.
 2. The repo for Enpal contains no Postgres: the `dev` target, docker-compose.yml, init.sql and raw_data/load_data.sh are removed; default target `test`.
-3. Admin SQL runs through the `ue17459` ACCOUNTADMIN connection.
+3. Admin SQL runs through the ACCOUNTADMIN admin connection.
 4. `ENPAL_DB` (first Snowflake copy: raw, Elementary results, the task's test model) is redundant: **dropped on 2026-10-24** on the owner's go.
 
 ## As built (2026-10-24)
@@ -88,7 +86,7 @@ Before `rep_sales_funnel_monthly`: the open decisions in NOTES (step 1 date, don
 ## Layers built (2026-10-24)
 
 - Intermediate: `int_pipedrive__deals` (1,995; flags D1 1,684, D2 683, D3 5), `int_pipedrive__deal_stage_entries` (8,891), `int_pipedrive__deal_stage_entries_backfilled` (1,995 / 1,990 / 1,951 / 1,862 / 1,693 / 1,424 / 1,081 / 723 / 324, equal to [[model_plan]]), `int_pipedrive__sales_calls` (1,142 Sales Call 1, 1,120 Sales Call 2).
-- Marts: seed `funnel_steps` + `dim_funnel_step` (11 steps), `rep_sales_funnel_monthly` (154 rows, 2024-01 to 2025-02, contract enforced).
-- Open decisions run on the recommended defaults, switchable as vars: `step_1_date: stage_entry`, `calls_done_only: true`, report window 2024-01 to 2025-02.
+- Marts: `dim_funnel_step` (11 steps, from `int_pipedrive__funnel_steps`), `rep_sales_funnel_monthly` (154 rows, 2024-01 to 2025-02, contract enforced).
+- Open decisions run on the recommended defaults, `step_1_date: stage_entry` and the report window 2024-01 to 2025-02 as vars; done calls only, fixed in the model.
 - Tests: unit test of the backfill, reconciliation of the report with the stage entries. Full `dbt build` on a fresh clone: 163 pass, 18 warn (known raw issues), 0 errors.
 - `analyses/` (11 files, 89 statements) and the 47 Lightdash chart queries rewritten to Snowflake SQL and compared with the Postgres results: same numbers, only formatting differs.

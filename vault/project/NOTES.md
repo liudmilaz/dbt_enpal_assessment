@@ -4,13 +4,25 @@ Last updated 2026-10-22. Written by the Claude session that did the exploration.
 
 ## What we are building
 
-Enpal Senior Analytics Engineer take-home. Build dbt models on Postgres (Docker) from six Pipedrive CSVs, ending in `rep_sales_funnel_monthly` with columns `month, kpi_name, funnel_step, deals_count` for steps 1, 2, 2.1, 3, 3.1, 4, 5, 6, 7, 8, 9. Original task text: `README.md`. The PR goes to the owner's own fork only.
+Enpal Senior Analytics Engineer take-home. Build dbt models from six Pipedrive CSVs, ending in `rep_sales_funnel_monthly` with columns `month, kpi_name, funnel_step, deals_count` for steps 1, 2, 2.1, 3, 3.1, 4, 5, 6, 7, 8, 9. Original task text: [[task]]. The PR goes to the owner's own fork only.
+
+## Platform: Snowflake instead of Postgres (agreed with Enpal)
+
+The assignment ships a local Postgres in Docker (`docker compose up`, admin/admin). **Enpal agreed in writing that the task may be solved on my own Snowflake test account**, and that AI tools may be used as support rather than to do the whole task. So the repository sent to Enpal is Snowflake-only: no `docker-compose.yml`, no `init.sql`, no `dbt-postgres` target.
+
+What this does and does not change:
+
+- **Unchanged:** the six Pipedrive source tables, the layer structure, the funnel definitions and the required reporting model with its four columns.
+- **Changed:** where the raw data is loaded (`ENPAL_RAW.PIPEDRIVE` instead of `postgres.public`), the setup steps in the repo README, and the SQL dialect of the analyses.
+- **Why:** the role asks for Snowflake semantic views, which the funnel report can feed, and one platform keeps the repository simple to read.
+
+The Postgres phase up to 2026-10-24 is kept as history in the decision table below and under "Before 2026-10-24: Postgres (history)".
 
 ## Status
 
-- Environment works: Docker Postgres loaded once, dbt venv, `dbt run` passed on the test model.
+- Environment works: own Snowflake trial account, raw loaded once into `ENPAL_RAW.PIPEDRIVE`, dbt venv `~/.venvs/enpal_sf`, `dbt build` green on the `test` target.
 - Exploration is done: the main data quality issues per table (`analyses/00_data_quality_issues.sql`), one analysis file per raw table (`analyses/01_deal_changes.sql` to `06_fields.sql`), all in the solution PR; local only (gitignored): `analyses/07_data_quality_findings.sql`, `analyses/08_business_questions.sql` (the KPIs read against the business, see `vault/project/business_context.md`) and `09_review_later.sql`; dbt test probes (44 tests, 7 fail, each a finding). See `vault/project/findings.md`. The same findings are charted in the dashboard.
-- No models are written yet. **The owner is writing the dbt models herself, for training. Do not write models; explain, review and answer questions.**
+- All layers are written: staging, intermediate and marts, ending in `rep_sales_funnel_monthly`. Claude writes the models, the owner reviews every layer (decision of 2026-10-24).
 - `vault/project/model_plan.md` has the intended layers, grains and metric definitions.
 
 ## Reminder: review later (owner)
@@ -29,7 +41,7 @@ Go through `analyses/09_review_later.sql` (local only) and write an answer under
 | `activity`: no surrogate key; `activity_id` is the primary key; deduplicate to one row per id, keeping the latest `due_to` | **Decided by the owner** (2026-10-23) | 4,579 rows to 4,568 (11 removed); steps 2.1 and 3.1 (done only) each lose 1 in 2024-01 and 2024-04. See `cleansing_proposals.md` (DUP-3) |
 | Repeated `activity_id` (11 ids, 22 rows, 0.48%): treat as duplicates, mark as a data quality issue; cleansing per the process within the domain | **Decided by the owner** (2026-10-23) | Proven not a composite key (02_activity, section 2). Needs a review by the business stakeholder responsible for the KPIs (Sales Call 1 / 2) and the CRM data entry |
 | Platform, first decision: the task's Postgres in Docker is the deliverable; Snowflake only as an optional extension branch | **Superseded** on 2026-10-24 (kept for the history) | The task ships a Postgres setup (docker compose, admin/admin); Snowflake was a bonus |
-| Platform (2026-10-24): **the project runs on Snowflake** (own trial account UE17459); the repo sent to Enpal contains no Postgres | **Decided by the owner**; **agreed by Enpal** in writing: own Snowflake test account allowed; AI tools allowed as support, not to do the whole task | The job description also asks for semantic views (Snowflake), which the funnel report can show; one platform keeps the repo simple. Layout in [[snowflake_test_env_plan]] |
+| Platform (2026-10-24): **the project runs on Snowflake** (own trial account); the repo sent to Enpal contains no Postgres | **Decided by the owner**; **agreed by Enpal** in writing: own Snowflake test account allowed; AI tools allowed as support, not to do the whole task | The job description also asks for semantic views (Snowflake), which the funnel report can show; one platform keeps the repo simple. Layout in [[snowflake_test_env_plan]] |
 | Who writes the models (2026-10-24): Claude writes, the owner reviews every layer; notification at raw load and at staging with tests | **Decided by the owner** | Earlier: the owner wrote the models for training |
 | A deal with two creation events counts once per step and month, by its first entry | Proposed by Claude, not confirmed | 5 deals carry two lifecycles |
 | Report window 2024-01 to 2025-02 | Proposed by Claude, not confirmed | Months that have stage events; calls are 0 from 2024-10, and so are new deals (last `add_time` 2024-09-13, found by Elementary) |
@@ -64,14 +76,14 @@ Pipeline set to the 9 stages and the 4 activity types created; sample data remov
 2026-10-24: Snowflake layout built (ENPAL_RAW, ENPAL_TEST as default target with zero-copy clones, ENPAL_ANALYTICS_PROD), raw loaded, Postgres removed from the repo, staging layer (6 views, 37 tests, all pass) built in ENPAL_TEST.
 
 
-Fork cloned, Docker and venv set up, VS Code SQLTools connection, per-table analysis files and the overall data-quality findings file, source declarations with probe tests (`models/staging/pipedrive/_pipedrive__sources.yml`), singular probe tests (`tests/exploration/`), findings and plan docs.
+Fork cloned, venv set up, per-table analysis files and the overall data-quality findings file, source declarations with probe tests (`models/sources/pipedrive/_pipedrive__sources.yml`), singular data-quality tests (`tests/data_quality/`), findings and plan docs.
 
 ## Next
 
-1. ~~Housekeeping~~ done 2026-10-24 on `feature/elementary`: `models/test_model.sql` removed, `requirements*.txt` added (Postgres, Snowflake, Elementary), Postgres image pinned to 18.6; `target/` was never tracked.
-2. Owner writes staging, intermediate and marts models per `vault/project/model_plan.md`.
-3. ~~Promote probe tests~~ done 2026-10-24 for the raw layer: all 7 probes moved to `tests/data_quality/` (renamed, house style), `tests/exploration/` deleted. Staging tests come with the owner's models (phase 3).
-4. Reconcile the report with the numbers in `vault/project/model_plan.md`.
+1. ~~Housekeeping~~ done 2026-10-24 on `feature/elementary`: `models/test_model.sql` removed, `requirements*.txt` added (Snowflake, Elementary), the Postgres setup files removed from the repo; `target/` is untracked.
+2. ~~Staging, intermediate and marts models~~ done 2026-10-24 per [[model_plan]]; the owner reviews each layer.
+3. ~~Promote probe tests~~ done 2026-10-24 for the raw layer: all 7 probes moved to `tests/data_quality/` (renamed, house style), `tests/exploration/` deleted.
+4. ~~Reconcile the report~~ done: the per-step totals equal the targets in [[model_plan]] and the reconciliation test passes.
 5. README (setup, assumptions, open questions for Enpal), commit, PR on the fork, zip for the email.
 
 ## Rules for this project
@@ -79,11 +91,11 @@ Fork cloned, Docker and venv set up, VS Code SQLTools connection, per-table anal
 - Keep the open-question register above up to date when a question is raised or answered. `vault/project/approach.md` holds only why the UI is compared and how the Pipedrive trial was set up (no change log).
 - Never push, open a PR or comment on `aro-91/dbt_enpal_assessment`. Push only to `origin` (`liudmilaz/...`); pass `-R liudmilaz/dbt_enpal_assessment` to `gh`.
 - Do not commit or push unless asked. Commit identity: `zolotukmila@datacanonic.com`.
-- Never run `docker compose up` a second time on a loaded database (the loader appends; `activity` and `deal_changes` have no primary key and double).
+- Never load the raw tables twice without `create or replace`: `activity` and `deal_changes` have no primary key and would double.
 
 ## Initial setup (Snowflake, since 2026-10-24)
 
-Snowflake, built through the `ue17459` admin connection (`scripts/snowflake_admin.sql`, `scripts/snowflake_load.sql`):
+Snowflake, built through the admin connection (`scripts/snowflake_admin.sql`, `scripts/snowflake_load.sql`):
 - **ENPAL_RAW.PIPEDRIVE**: loaded by SYSADMIN; the dbt role can only read it.
 - **ENPAL_TEST**: the default target. `dbt run-operation refresh_src` clones the six raw tables into `ENPAL_TEST.SRC`; the clones use 0 bytes of their own storage, and the command refuses to run on prod.
 - **ENPAL_ANALYTICS_PROD**: the prod target, built from `main` only.

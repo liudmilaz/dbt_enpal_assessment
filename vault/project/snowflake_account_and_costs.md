@@ -6,14 +6,14 @@ tags:
 
 # Snowflake account: what each database, role and warehouse is for, and what it costs
 
-Trial account UE17459 (AWS, Frankfurt), as seen in Snowsight's database, role and warehouse pickers on 2026-10-24. Layout and decisions: [[snowflake_test_env_plan]].
+Own trial account (AWS, Frankfurt), as seen in Snowsight's database, role and warehouse pickers on 2026-10-24. Layout and decisions: [[snowflake_test_env_plan]].
 
 ## Databases
 
 | Database | For | Created by | Cost |
 |---|---|---|---|
 | `ENPAL_RAW` | The six Pipedrive CSVs as delivered, schema `PIPEDRIVE` (`PUBLIC` is the empty default schema every database gets). Loaded once by SYSADMIN; dbt can only read it | `scripts/snowflake_admin.sql`, `scripts/snowflake_load.sql` | Storage of about 0.3 MB |
-| `ENPAL_TEST` | dbt's **default target**. `SRC` holds zero-copy clones of the raw tables (`dbt run-operation refresh_src`); `STAGING`, `INTERMEDIATE`, `MARTS`, `SEEDS`, `ELEMENTARY` hold what dbt builds. Every change is built and tested here first | admin script; dbt | Clones: 0 bytes until a cloned table changes. Views: no storage. Mart tables and Elementary: a few hundred KB |
+| `ENPAL_TEST` | dbt's **default target**. `SRC` holds zero-copy clones of the raw tables (`dbt run-operation refresh_src`); `STAGING`, `INTERMEDIATE`, `MARTS`, `ELEMENTARY` hold what dbt builds. Every change is built and tested here first | admin script; dbt | Clones: 0 bytes until a cloned table changes. Views: no storage. Mart tables and Elementary: a few hundred KB |
 | `ENPAL_ANALYTICS_PROD` | dbt target `prod`: the same layers, built from `main` only, after the test build is green and after confirmation. Reads `ENPAL_RAW` directly. Empty so far | admin script | 0 until built |
 | `ENPAL_DB` | The first Snowflake copy (raw, Elementary results, the task's test model). **Dropped on 2026-10-24**; restorable with `undrop` for 1 day (time travel), then 7 days of fail-safe | first transfer | Fail-safe keeps its bytes for 7 days (KB) |
 | `PC_DBT_DB` | dbt Cloud Partner Connect database of the jaffle_shop learning project | Partner Connect | Separate project |

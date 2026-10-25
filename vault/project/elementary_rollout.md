@@ -3,8 +3,9 @@ tags:
   - project/enpal
   - type/plan
 ---
-
 # Elementary rollout: data quality tests and monitoring
+
+> **As built (2026-10-25):** the tests were reduced to keys (primary, alternate and foreign) and one singular test per discovered issue in `tests/data_quality/`, which returns the affected raw rows and fails (severity error) in the Elementary report. The anomaly and schema monitors below are not implemented; they are the next step together with source freshness and custom tests per business process, once the export is loaded on a schedule. See [[approach]].
 
 Plan for monitoring the data quality issues in [[findings]] (main list: `analyses/00_data_quality_issues.sql`) with **Elementary**, the open-source dbt package plus CLI. Status (2026-10-23): phases 1 and 2 done on branch `feature/elementary` (not committed); report served on localhost with `bash scripts/dq_report.sh` (http://localhost:8081/elementary_report.html). Phase 3 waits for the models.
 
@@ -106,7 +107,7 @@ One staging model per raw table. The cleansing of each issue follows the explora
 | A2 activities without a known deal | flag `has_known_deal` |
 | T1 `active` as text | `is_active` boolean from 'Yes' / 'No' |
 | DUP-5 / U1 shared emails | `lower(trim(email))`; flag `has_shared_email` |
-| S1 stage spelling | `stage_name` from the task's step names (seed); source name kept as `source_stage_name` |
+| S1 stage spelling | step names from the Stage field labels (the task's spelling), pinned by tests on `int_pipedrive__funnel_steps` |
 
 Not cleansed in staging, because they are business rules: skipped stages (D1, backfill in intermediate), two lifecycles (D3, counted once in intermediate), lost reason (D4), generated timing (D5), call timing and done flag (A3, A4), export dates (X1, report window).
 
@@ -199,7 +200,7 @@ Lessons:
 
 ## Snowflake target (2026-10-24)
 
-The project also runs on the Snowflake trial **UE17459** (the latest; created 2026-10-18).
+The project also runs on my own Snowflake trial account (created 2026-10-18).
 - **Objects:** role `ENPAL_DBT_ROLE` (granted to the CLI key-pair user, her Snowsight user and SYSADMIN), warehouse `ENPAL_WH` (XS, suspends after 60 s), database `ENPAL_DB`. Raw tables are in `ENPAL_DB.RAW`, dbt output in `PUBLIC_*` schemas, Elementary in `PUBLIC_ELEMENTARY`.
 - **Load:** `scripts/snowflake_load.sql` (same DDL as init.sql; `fields.field_value_options` is a VARIANT). It replaces the tables, so a rerun never appends. Row counts equal Postgres: 4 / 4,579 / 15,406 / 4 / 9 / 1,787.
 - **Login:** Snowsight SSO is Google OIDC; the CLI's `externalbrowser` needs SAML, so dbt and edr use key-pair auth. Account, user and key path are in `~/.snowflake/enpal.env` (template `scripts/snowflake_env.example`), not in the public repo.
