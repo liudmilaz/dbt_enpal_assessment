@@ -72,13 +72,3 @@ vars:
   raw_location:
     test: { database: ENPAL_TEST, schema: SRC }
     prod: { database: ENPAL_RAW, schema: PIPEDRIVE }
-
-seeds:
-  enpal_assessment_project:
-    +schema: seeds
-    funnel_steps:
-      +column_types:
-        funnel_step: varchar
-        stage_id: integer
-        activity_type: varchar
-        sort_order: integer

@@ -18,7 +18,7 @@ ENPAL_RAW.PIPEDRIVE        6 CSVs, loaded once (scripts/snowflake_load.sql); dbt
   -> ENPAL_TEST.SRC        zero-copy clones (dbt run-operation refresh_src) - default target `test`
   -> STAGING               stg_pipedrive__*  one view per raw table: rename, cast, deduplicate
   -> INTERMEDIATE          int_pipedrive__deals, __deal_stage_entries(_backfilled), __sales_calls
-  -> MARTS                 dim_funnel_step (seed funnel_steps), rep_sales_funnel_monthly
+  -> MARTS                 dim_funnel_step, rep_sales_funnel_monthly, fct_deals
 ENPAL_ANALYTICS_PROD       same layers, target `prod`, built from main only, reads ENPAL_RAW directly
 ```
 

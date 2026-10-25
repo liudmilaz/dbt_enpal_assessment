@@ -7,7 +7,7 @@ with call_steps as (
     select
         funnel_step,
         activity_type
-    from {{ ref('funnel_steps') }}
+    from {{ ref('stg_pipedrive__field_options') }}
     where source_type = 'activity'  -- steps 2.1 and 3.1
 ),
 

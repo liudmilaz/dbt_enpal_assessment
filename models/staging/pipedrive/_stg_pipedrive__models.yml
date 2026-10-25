@@ -246,44 +246,76 @@ models:
   - name: stg_pipedrive__field_options
     description: >
       The allowed values of the deal's list fields, with the labels users see: the nine stage labels of the Stage
-      field and the five lost reasons of the Lost reason field. The lost reasons are Customer Not Ready (interested
-      but not now), Pricing Issues (price or financing did not work), Unreachable Customer (stopped answering),
-      Product Mismatch (roof, house, consumption or region does not fit) and Duplicate Entry (a second deal for the
-      same customer, closed).
+      field and the five lost reasons of the Lost reason field; plus the two call funnel steps (Sales Call 1,
+      Sales Call 2) added as activity_type rows. Stage options carry the task's funnel step mapping (step number,
+      kpi name, sort order). The lost reasons are Customer Not Ready (interested but not now), Pricing Issues
+      (price or financing did not work), Unreachable Customer (stopped answering), Product Mismatch (roof, house,
+      consumption or region does not fit) and Duplicate Entry (a second deal for the same customer, closed).
     config:
       meta:
-        grain: "field_key, option_id"
+        grain: "field_key, coalesce(option_id, activity_type)"
         primary_key: [field_key, option_id]
-        logical_entity: [FIELD_OPTION, LOST_REASON]
-        cleaning: "Unpacked from the JSON array fields.field_value_options; fields without a list (Deal created, Owner) have no rows."
+        logical_entity: [FIELD_OPTION, LOST_REASON, FUNNEL_STEP]
+        cleaning: "Unpacked from the JSON array fields.field_value_options; fields without a list (Deal created, Owner) have no rows. Call steps and funnel step attributes are inlined from the task definition."
         caveats:
           - "DUP-6: Duplicate Entry deals can reach Closing, so duplicates are not caught early."
           - "D4: Unreachable Customer deals can reach Needs Assessment or later, so the reason does not say where a deal stopped."
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments: { combination_of_columns: [field_key, option_id] }
+          config:
+            where: "option_id is not null"
+      - dbt_utils.unique_combination_of_columns:
+          arguments: { combination_of_columns: [field_key, activity_type] }
+          config:
+            where: "activity_type is not null"
     columns:
       - name: field_key
-        description: "The technical name of the deal property the option belongs to: stage_id or lost_reason."
+        description: "The technical name of the deal property the option belongs to: stage_id, lost_reason, or activity_type (for call funnel steps)."
         config:
           meta: { source_column: field_key }
         data_tests:
           - not_null
           - accepted_values:
-              arguments: { values: [stage_id, lost_reason] }
+              arguments: { values: [stage_id, lost_reason, activity_type] }
       - name: field_name
-        description: "The property's label in the CRM: Stage, Lost reason."
+        description: "The property's label in the CRM: Stage, Lost reason. Null for call steps."
         config:
           meta: { source_column: name }
       - name: option_id
-        description: "The value stored on the deal: the stage id for Stage, the reason id for Lost reason."
+        description: "The value stored on the deal: the stage id for Stage, the reason id for Lost reason. Null for call steps."
         config:
           meta: { source_column: "field_value_options[].id" }
-        data_tests: [not_null]
+        data_tests:
+          - not_null:
+              config:
+                where: "field_key in ('stage_id', 'lost_reason')"
       - name: option_label
-        description: "The label users pick in the CRM, for example Negotiation or Pricing Issues."
+        description: "The label users pick in the CRM, for example Negotiation or Pricing Issues. Null for call steps."
         config:
           meta: { source_column: "field_value_options[].label" }
+      - name: funnel_step
+        description: "Step number as text: '1' to '9', '2.1', '3.1'. Null for lost reasons."
+      - name: kpi_name
+        description: "The step's name as the task spells it, for example Lead Generation or Sales Call 1. Null for lost reasons."
+      - name: source_type
+        description: "Where the step is counted from: 'stage' (a pipeline stage entry) or 'activity' (a sales call). Null for lost reasons."
+        data_tests:
+          - accepted_values:
+              arguments: { values: [stage, activity] }
+              config:
+                where: "source_type is not null"
+      - name: activity_type
+        description: "The activity type key for call steps: meeting (Sales Call 1) or sc_2 (Sales Call 2). Null for stage and lost reason rows."
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_pipedrive__activity_types')
+                field: activity_type
+              config:
+                where: "activity_type is not null"
+      - name: sort_order
+        description: "Order of the steps in the report: 1, 2, 2.1, 3, 3.1, 4 to 9. Null for lost reasons."
 
   - name: stg_pipedrive__users
     description: >
