@@ -4,7 +4,7 @@ version: 2
 
 models:
   - name: dim_funnel_step
-    description: "One row per funnel step of the task (9 stage steps, 2 call steps), from stg_pipedrive__field_options. Names are the task's."
+    description: "One row per funnel step of the task (9 stage steps, 2 call steps), from int_pipedrive__funnel_steps. Names are the task's."
     config:
       meta: { grain: funnel_step, primary_key: [funnel_step] }
     columns:

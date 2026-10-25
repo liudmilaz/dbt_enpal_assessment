@@ -17,7 +17,7 @@ The assignment ships a local Postgres in Docker. Enpal agreed that this solution
 ENPAL_RAW.PIPEDRIVE        6 CSVs, loaded once (scripts/snowflake_load.sql); dbt can only read it
   -> ENPAL_TEST.SRC        zero-copy clones (dbt run-operation refresh_src) - default target `test`
   -> STAGING               stg_pipedrive__*  one view per raw table: rename, cast, deduplicate
-  -> INTERMEDIATE          int_pipedrive__deals, __deal_stage_entries(_backfilled), __sales_calls
+  -> INTERMEDIATE          int_pipedrive__deals, __deal_stage_entries(_backfilled), __funnel_steps, __sales_calls
   -> MARTS                 dim_funnel_step, rep_sales_funnel_monthly, fct_deals
 ENPAL_ANALYTICS_PROD       same layers, target `prod`, built from main only, reads ENPAL_RAW directly
 ```
@@ -32,7 +32,7 @@ ENPAL_ANALYTICS_PROD       same layers, target `prod`, built from main only, rea
    export DBT_PROFILES_DIR=.
    dbt deps
    dbt run-operation refresh_src   # fresh zero-copy clones in ENPAL_TEST.SRC
-   dbt build                       # target test: seed, models and all tests
+   dbt build                       # target test: models and all tests
    ```
    Production: `dbt build --target prod` (from `main` only).
 5. **Data quality report** (optional): `pip install -r requirements-elementary.txt` in a separate venv, then `bash scripts/dq_report.sh` serves the Elementary report on http://localhost:8081.
@@ -63,9 +63,9 @@ The open questions for the business (KPI owner, CRM admin) and the evidence behi
 | Path | Content |
 |---|---|
 | `models/sources/pipedrive/` | sources with descriptions, keys in `meta`, raw-layer tests and monitors |
-| `models/staging`, `models/intermediate`, `models/marts`, `seeds/` | the models |
+| `models/staging`, `models/intermediate`, `models/marts` | the models |
 | `macros/` | `refresh_src` (test clones), `generate_schema_name` (one schema per layer) |
-| `tests/` | singular tests: raw data quality, report reconciliation |
+| `tests/` | singular tests: raw data quality, funnel step count, report reconciliation |
 | `analyses/` | exploratory analysis per raw table, Snowflake SQL with results |
 | `scripts/` | Snowflake admin and load scripts, data quality report |
 | `lightdash/` | scripts for an exploratory Lightdash dashboard (optional) |
