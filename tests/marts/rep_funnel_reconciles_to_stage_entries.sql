@@ -27,15 +27,16 @@ entry_totals as (
     inner join {{ ref('int_pipedrive__deals') }} d
         on d.deal_id = e.deal_id
     where date_trunc('month', e.entered_at) between '{{ var("report_start_month") }}' and '{{ var("report_end_month") }}'
+        {% if var('step_1_date') == 'created' %}and s.stage_id <> 1{% endif %}
     group by s.funnel_step
 )
 
--- one failed row per stage step whose totals differ
+-- one failed row per stage step whose totals differ, also when the step is on one side only
 select
-    r.funnel_step,
-    r.report_deals,
-    e.entered_deals
+    coalesce(r.funnel_step, e.funnel_step) as funnel_step,
+    coalesce(r.report_deals, 0) as report_deals,
+    coalesce(e.entered_deals, 0) as entered_deals
 from report_totals r
-inner join entry_totals e
+full outer join entry_totals e
     on e.funnel_step = r.funnel_step
-where r.report_deals <> e.entered_deals
+where coalesce(r.report_deals, 0) <> coalesce(e.entered_deals, 0)
