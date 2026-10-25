@@ -1,6 +1,6 @@
 -- One row per sales call that is a funnel step (ACTIVITY in the logical model, the two call types only):
 -- Sales Call 1 (type meeting, step 2.1) and Sales Call 2 (type sc_2, step 3.1). Done and not done are both kept;
--- the report filters with var calls_done_only. deal_id matches the deal history for only 8 activities (A2).
+-- the funnel report filters to done calls only. deal_id matches the deal history for only 8 activities (A2).
 
 -- the funnel steps that come from activities
 with call_steps as (

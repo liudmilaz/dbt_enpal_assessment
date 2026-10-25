@@ -43,7 +43,7 @@ ENPAL_ANALYTICS_PROD       same layers, target `prod`, built from main only, rea
 |---|---|---|
 | Skipped stages (84% of deals) | counted as reached, flagged `is_inferred`; for recorded entries only use `int_pipedrive__deal_stage_entries` | a deal in Negotiation has passed Qualified Lead; recorded-only would roughly halve the middle steps |
 | Step 1 date | first entry into stage 1 (`step_1_date: created` uses the creation time) | same rule as every other step; creation is a median 35 days earlier |
-| Calls 2.1 / 3.1 | done calls only (`calls_done_only: false` counts planned calls too) | a held call is the KPI; about 50% of every type is done |
+| Calls 2.1 / 3.1 | done calls only | a held call is the KPI; about 50% of every type is done |
 | Calls vs deals | calls counted per month by their own `deal_id` | only 8 of 4,579 activities link to a deal in the history, so they cannot be attached to the funnel deals |
 | Two lifecycles in one deal (5 deals) | counted once per step, by the first entry | |
 | Repeated `activity_id` (11 ids) | `activity_id` is the key; the latest `due_to` per id is kept (4,579 to 4,568) | |

@@ -28,7 +28,7 @@ models:
       The task's report: one row per month and funnel step, from var report_start_month to var report_end_month,
       zero-filled. Stage steps count distinct funnel-eligible deals (int_pipedrive__funnel_deals, DUP-6 excluded)
       whose first entry into the stage (recorded or inferred) falls in the month; steps 2.1 and 3.1 count distinct
-      deal ids with a call due in the month (done only, var calls_done_only), which are not the funnel deals (A2)
+      deal ids with a done call due in the month, which are not the funnel deals (A2)
       and are 0 for months after the activity export ends (X1).
     config:
       contract: { enforced: true }

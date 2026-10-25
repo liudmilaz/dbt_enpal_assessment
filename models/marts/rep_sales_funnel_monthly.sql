@@ -1,8 +1,8 @@
 -- One row per month and funnel step (FUNNEL_MONTH in the logical model): the number of deals that reached the step in
 -- that month. Stage steps: distinct deals whose first entry into the stage (recorded or inferred, D1) falls in the
--- month. Call steps 2.1 and 3.1: distinct deal ids with a call of that type due in the month (A2: these ids are not the
--- funnel deals), done calls only when var calls_done_only is true. Months without deals show 0.
--- Open decisions with defaults as vars (vault/project/NOTES.md): step_1_date, calls_done_only, report window.
+-- month. Call steps 2.1 and 3.1: distinct deal ids with a done call of that type due in the month (A2: these ids are
+-- not the funnel deals). Months without deals show 0.
+-- Open decisions with defaults as vars (vault/project/NOTES.md): step_1_date, report window.
 
 -- one row per month of the report window
 with months as (
@@ -75,9 +75,7 @@ calls as (
         deal_id,
         date_trunc('month', due_at)::date as month
     from {{ ref('int_pipedrive__sales_calls') }}
-    {% if var('calls_done_only') %}
     where is_done  -- held calls only, not planned ones
-    {% endif %}
 ),
 
 call_counts as (

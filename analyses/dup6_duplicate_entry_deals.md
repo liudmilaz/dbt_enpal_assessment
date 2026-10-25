@@ -244,7 +244,7 @@ Move the exclusion from scattered Jinja conditionals in `rep_sales_funnel_monthl
 intermediate model:
 
 1. **Create `int_pipedrive__funnel_deals`**: selects from `int_pipedrive__deals`, applies
-   `where not is_duplicate_entry` (behind the existing `exclude_duplicate_entry_deals` var).
+   `where not is_duplicate_entry`.
 2. **Simplify `rep_sales_funnel_monthly`**: replace the three `{% if var(...) %}` blocks with an
    `inner join` to `int_pipedrive__funnel_deals` on `deal_id`.
 3. **`fct_deals` unchanged**: keeps all deals with the flag.

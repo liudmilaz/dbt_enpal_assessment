@@ -165,7 +165,7 @@ models:
           meta: { source_column: deal_id }
         data_tests: [not_null]
       - name: is_done
-        description: "Whether the rep marked the activity as done, i.e. it took place. Steps 2.1 and 3.1 count done calls (var calls_done_only)."
+        description: "Whether the rep marked the activity as done, i.e. it took place. Steps 2.1 and 3.1 count done calls only."
         config:
           meta: { source_column: done }
         # not a key, but it filters steps 2.1 and 3.1: a null would silently drop a call (dbt skill, tier 2)

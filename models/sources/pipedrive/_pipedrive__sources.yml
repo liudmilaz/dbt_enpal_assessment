@@ -250,7 +250,7 @@ sources:
                 meta: { issue: activity_types, owner: sales_ops, quality_dimension: completeness }
           - elementary.dimension_anomalies:
               name: a4_done_weekly__activity_type
-              description: "Found (EDA 00 A4): only about half of every type is marked done, although all are due in the past. Improve (sales ops): mark held calls as done. Handled: steps 2.1 and 3.1 count done calls only (var calls_done_only); a drop in done calls fails here."
+              description: "Found (EDA 00 A4): only about half of every type is marked done, although all are due in the past. Improve (sales ops): mark held calls as done. Handled: steps 2.1 and 3.1 count done calls only; a drop in done calls fails here."
               arguments:
                 dimensions: [type]
                 where_expression: "done"
@@ -328,7 +328,7 @@ sources:
                     tags: [dq_known_issue, dq_process]
                     meta: { issue: A2, owner: crm_admin, quality_dimension: consistency }
           - name: done
-            description: "Whether the activity was marked done. Known pattern A4: part of the past activities is never marked done; counting done calls only (var calls_done_only) lowers steps 2.1 and 3.1."
+            description: "Whether the activity was marked done. Known pattern A4: part of the past activities is never marked done; counting done calls only lowers steps 2.1 and 3.1."
             data_type: BOOLEAN
             config:
               meta: { issue: A4 }

@@ -23,15 +23,10 @@ entry_totals as (
     from {{ ref('int_pipedrive__deal_stage_entries_backfilled') }} e
     join {{ ref('dim_funnel_step') }} s
         on s.stage_id = e.stage_id
-    {% if var('exclude_duplicate_entry_deals') %}
     -- match the report's DUP-6 exclusion
-    left join {{ ref('int_pipedrive__deals') }} d
-        on d.deal_id = e.deal_id
-    where not d.is_duplicate_entry
-        and date_trunc('month', e.entered_at) between '{{ var("report_start_month") }}' and '{{ var("report_end_month") }}'
-    {% else %}
+    inner join {{ ref('int_pipedrive__funnel_deals') }} f
+        on f.deal_id = e.deal_id
     where date_trunc('month', e.entered_at) between '{{ var("report_start_month") }}' and '{{ var("report_end_month") }}'
-    {% endif %}
     group by s.funnel_step
 )
 
