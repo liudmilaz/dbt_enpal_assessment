@@ -65,8 +65,7 @@ data_tests:
 #   test -> ENPAL_TEST.SRC, zero-copy clones made by `dbt run-operation refresh_src`
 #   prod -> ENPAL_RAW.PIPEDRIVE, read directly
 vars:
-  # Funnel rules (vault/project/model_plan.md). Decided: backfill skipped stages. Open, set to Claude's recommendation:
-  funnel_backfill_skipped_stages: true   # decided by the owner: a skipped stage counts as reached (is_inferred)
+  # Funnel rules (vault/project/model_plan.md). Open decisions set to Claude's recommendation:
   step_1_date: stage_entry               # open: 'stage_entry' (first entry into stage 1) or 'created' (add_time)
   calls_done_only: true                  # open: steps 2.1 and 3.1 count done calls only
   exclude_duplicate_entry_deals: true    # decided (DUP-6): drop deals with lost reason Duplicate Entry from the funnel

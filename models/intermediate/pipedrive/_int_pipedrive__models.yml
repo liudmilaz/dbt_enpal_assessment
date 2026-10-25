@@ -110,8 +110,6 @@ unit_tests:
   - name: backfill_dates_skipped_stages_at_the_next_recorded_entry
     description: "A deal recorded at stages 1 and 4 reaches 2 and 3 as inferred, dated at its stage-4 entry."
     model: int_pipedrive__deal_stage_entries_backfilled
-    overrides:
-      vars: { funnel_backfill_skipped_stages: true }
     given:
       - input: ref('int_pipedrive__deal_stage_entries')
         rows:

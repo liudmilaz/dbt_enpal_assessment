@@ -1,6 +1,7 @@
 -- One row per deal and every stage from 1 to the highest stage it reached (STAGE_ENTRY in the logical model).
--- deals skip stages (D1): a skipped stage counts as reached (decided by the owner), flagged is_inferred and
--- dated at the first recorded entry of a higher stage. var funnel_backfill_skipped_stages = false keeps recorded rows only.
+-- Deals skip stages (D1): a skipped stage counts as reached (decided by the owner), flagged is_inferred and
+-- dated at the first recorded entry of a higher stage. Downstream consumers filter on is_inferred if needed;
+-- for recorded-only entries use int_pipedrive__deal_stage_entries directly.
 
 -- recorded entries
 with recorded as (
@@ -42,7 +43,7 @@ with_recorded as (
         and r.stage_id = e.stage_id
 ),
 
--- the first recorded entry of any higher stage: a later stage proves this one was passed
+-- the earliest recorded entry of any higher stage: proves this stage was passed
 dated as (
     select
         deal_id,
@@ -54,23 +55,11 @@ dated as (
             rows between unbounded preceding and 1 preceding
         ) as next_recorded_at
     from with_recorded
-),
-
-backfilled as (
-    select
-        deal_id,
-        stage_id,
-        coalesce(recorded_at, next_recorded_at) as entered_at,
-        recorded_at is null as is_inferred
-    from dated
 )
 
 select
     deal_id,
     stage_id,
-    entered_at,
-    is_inferred
-from backfilled
-{% if not var('funnel_backfill_skipped_stages') %}
-where not is_inferred  -- recorded entries only
-{% endif %}
+    coalesce(recorded_at, next_recorded_at) as entered_at,
+    recorded_at is null as is_inferred
+from dated
