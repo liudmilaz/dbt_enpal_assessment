@@ -16,6 +16,8 @@ select
     deal_id,
     stage_id,
     min(change_time) as entered_at,
+    -- a deal recorded at stages 1 and 4 has is_inferred = false here;
+    -- the backfill adds stages 2 and 3 with is_inferred = true
     false as is_inferred
 from stage_moves
 group by
