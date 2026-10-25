@@ -27,6 +27,6 @@ select
     d.deal_id,
     f.furthest_stage_id
 from duplicate_entries d
-join furthest_stages f
+inner join furthest_stages f
     on f.deal_id = d.deal_id
 where f.furthest_stage_id >= 6  -- Closing or an after-sale stage

@@ -28,6 +28,6 @@ select
     l.lost_at,
     s.last_stage_at
 from lost_reasons l
-join last_stage_moves s
+inner join last_stage_moves s
     on s.deal_id = l.deal_id
 where l.lost_at < s.last_stage_at  -- the deal moved on after it was lost

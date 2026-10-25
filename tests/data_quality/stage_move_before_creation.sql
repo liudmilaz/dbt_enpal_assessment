@@ -28,6 +28,6 @@ select
     s.change_time,
     c.created_at
 from stage_moves s
-join created c
+inner join created c
     on c.deal_id = s.deal_id
 where s.change_time < c.created_at

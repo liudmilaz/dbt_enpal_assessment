@@ -8,7 +8,7 @@ with report_totals as (
         r.funnel_step,
         sum(r.deals_count) as report_deals
     from {{ ref('rep_sales_funnel_monthly') }} r
-    join {{ ref('dim_funnel_step') }} s
+    inner join {{ ref('dim_funnel_step') }} s
         on s.funnel_step = r.funnel_step
     where s.source_type = 'stage'  -- stage steps only; calls are counted per month, not per deal
         {% if var('step_1_date') == 'created' %}and s.stage_id <> 1{% endif %}
@@ -21,7 +21,7 @@ entry_totals as (
         s.funnel_step,
         count(distinct e.deal_id) as entered_deals
     from {{ ref('int_pipedrive__deal_stage_entries_backfilled') }} e
-    join {{ ref('dim_funnel_step') }} s
+    inner join {{ ref('dim_funnel_step') }} s
         on s.stage_id = e.stage_id
     -- match the report's DUP-6 exclusion
     inner join {{ ref('int_pipedrive__funnel_deals') }} f
@@ -36,6 +36,6 @@ select
     r.report_deals,
     e.entered_deals
 from report_totals r
-join entry_totals e
+inner join entry_totals e
     on e.funnel_step = r.funnel_step
 where r.report_deals <> e.entered_deals

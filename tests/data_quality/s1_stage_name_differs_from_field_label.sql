@@ -19,6 +19,6 @@ select
     s.stage_name,
     l.stage_label
 from {{ source('pipedrive', 'stages') }} s
-join stage_labels l
+inner join stage_labels l
     on l.stage_id = s.stage_id
 where s.stage_name <> l.stage_label
