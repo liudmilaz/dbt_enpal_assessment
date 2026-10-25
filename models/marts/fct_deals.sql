@@ -11,7 +11,8 @@ with deals as (
         highest_stage_id,
         has_skipped_stage,
         is_after_sale_without_closing,
-        has_two_lifecycles
+        has_two_lifecycles,
+        is_duplicate_entry
     from {{ ref('int_pipedrive__deals') }}
 ),
 
@@ -38,7 +39,8 @@ select
     datediff('day', d.first_stage_entered_at, c.closing_entered_at) as days_lead_to_closing,
     d.has_skipped_stage,
     d.is_after_sale_without_closing,
-    d.has_two_lifecycles
+    d.has_two_lifecycles,
+    d.is_duplicate_entry
 from deals d
 left join closings c
     on c.deal_id = d.deal_id

@@ -57,7 +57,8 @@ select
     a.last_lost_reason_at,
     s.recorded_stages < s.highest_stage_id as has_skipped_stage,                          -- D1: fewer recorded stages than reached
     s.highest_stage_id >= 7 and not s.entered_closing as is_after_sale_without_closing,   -- D2: stage 7 to 9 without Closing
-    a.creation_events > 1 as has_two_lifecycles                                          -- D3: two creation events under one deal_id
+    a.creation_events > 1 as has_two_lifecycles,                                         -- D3: two creation events under one deal_id
+    a.last_lost_reason_id = 5 as is_duplicate_entry                                      -- DUP-6: lost reason Duplicate Entry
 from deal_attributes a
 join stage_path s
     on s.deal_id = a.deal_id

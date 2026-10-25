@@ -135,10 +135,14 @@ models:
           - "X1: the activity export can end earlier than the deal history."
     columns:
       - name: activity_id
-        description: "The activity's id in the CRM."
+        description: "The activity's id in the CRM; can repeat (A1/DUP-3, 11 ids shared by unrelated activities)."
         config:
           meta: { source_column: activity_id }
-        data_tests: [unique, not_null]
+        data_tests:
+          - unique:
+              config:
+                severity: warn
+          - not_null
       - name: activity_type
         description: "The kind of activity, by its key: meeting = Sales Call 1, sc_2 = Sales Call 2, follow_up = Follow Up Call, after_close_call = After Close Call."
         config:

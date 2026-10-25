@@ -27,21 +27,37 @@ steps as (
     from {{ ref('dim_funnel_step') }}
 ),
 
+-- deals to exclude from the funnel (DUP-6: Duplicate Entry)
+{% if var('exclude_duplicate_entry_deals') %}
+excluded_deals as (
+    select
+        deal_id
+    from {{ ref('int_pipedrive__deals') }}
+    where is_duplicate_entry
+),
+{% endif %}
+
 -- stage steps: the month each deal first reached each stage
 stage_entries as (
     select
-        deal_id,
-        stage_id,
-        date_trunc('month', entered_at)::date as month
-    from {{ ref('int_pipedrive__deal_stage_entries_backfilled') }}
+        e.deal_id,
+        e.stage_id,
+        date_trunc('month', e.entered_at)::date as month
+    from {{ ref('int_pipedrive__deal_stage_entries_backfilled') }} e
+    {% if var('exclude_duplicate_entry_deals') %}
+    left join excluded_deals x
+        on x.deal_id = e.deal_id
+    where x.deal_id is null  -- drop Duplicate Entry deals (DUP-6)
+    {% endif %}
     {% if var('step_1_date') == 'created' %}
-    where stage_id <> 1  -- step 1 comes from the creation date below
+    {% if var('exclude_duplicate_entry_deals') %}and{% else %}where{% endif %} e.stage_id <> 1  -- step 1 comes from the creation date below
     union all
     select
-        deal_id,
+        d.deal_id,
         1 as stage_id,
-        date_trunc('month', created_at)::date as month
-    from {{ ref('int_pipedrive__deals') }}
+        date_trunc('month', d.created_at)::date as month
+    from {{ ref('int_pipedrive__deals') }} d
+    where not d.is_duplicate_entry
     {% endif %}
 ),
 

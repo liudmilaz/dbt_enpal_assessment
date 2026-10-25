@@ -41,6 +41,8 @@ models:
         description: "D2: reached stage 7 to 9 without a recorded Closing; the backfill counts it under Closing."
       - name: has_two_lifecycles
         description: "D3: two creation events under one deal_id; the funnel counts the deal once, by its first entries."
+      - name: is_duplicate_entry
+        description: "DUP-6: last lost reason is Duplicate Entry; excluded from the funnel when var exclude_duplicate_entry_deals is true."
 
   - name: int_pipedrive__deal_stage_entries
     description: "One row per deal and recorded stage, dated by the first entry: a re-entry of a stage already entered counts once."
@@ -89,8 +91,12 @@ models:
       meta: { grain: activity_id, primary_key: [activity_id] }
     columns:
       - name: activity_id
-        description: "The call's id in the CRM."
-        data_tests: [unique, not_null]
+        description: "The call's id in the CRM; can repeat (A1/DUP-3)."
+        data_tests:
+          - unique:
+              config:
+                severity: warn
+          - not_null
       - name: funnel_step
         description: "The funnel step the call is: '2.1' for Sales Call 1 (meeting), '3.1' for Sales Call 2 (sc_2)."
         data_tests:

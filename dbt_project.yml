@@ -69,6 +69,7 @@ vars:
   funnel_backfill_skipped_stages: true   # decided by the owner: a skipped stage counts as reached (is_inferred)
   step_1_date: stage_entry               # open: 'stage_entry' (first entry into stage 1) or 'created' (add_time)
   calls_done_only: true                  # open: steps 2.1 and 3.1 count done calls only
+  exclude_duplicate_entry_deals: true    # decided (DUP-6): drop deals with lost reason Duplicate Entry from the funnel
   report_start_month: '2024-01-01'       # open: report window, months with stage events
   report_end_month: '2025-02-01'
   raw_location:
