@@ -64,5 +64,5 @@ select
     a.creation_events > 1 as has_two_lifecycles,                                         -- D3: two creation events under one deal_id
     a.last_lost_reason_id = 5 as is_duplicate_entry                                      -- DUP-6: lost reason Duplicate Entry
 from deal_attributes a
-join stage_path s
+inner join stage_path s
     on s.deal_id = a.deal_id

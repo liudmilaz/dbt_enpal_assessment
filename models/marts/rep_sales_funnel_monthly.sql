@@ -67,7 +67,7 @@ stage_counts as (
         e.month,
         count(distinct e.deal_id) as deals_count
     from stage_entries e
-    join steps s
+    inner join steps s
         on s.stage_id = e.stage_id
     group by
         s.funnel_step,

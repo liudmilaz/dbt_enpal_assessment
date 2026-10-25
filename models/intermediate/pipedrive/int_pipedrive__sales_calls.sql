@@ -32,5 +32,5 @@ select
     a.is_done,
     a.due_at
 from activities a
-join call_steps c
+inner join call_steps c
     on c.activity_type = a.activity_type

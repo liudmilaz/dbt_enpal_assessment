@@ -26,7 +26,7 @@ expected_stages as (
         d.deal_id,
         s.stage_id
     from deal_highest_stage d
-    join {{ ref('stg_pipedrive__stages') }} s
+    inner join {{ ref('stg_pipedrive__stages') }} s
         on s.stage_id <= d.highest_stage_id
 ),
 
