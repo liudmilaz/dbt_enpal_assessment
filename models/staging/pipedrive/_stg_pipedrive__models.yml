@@ -128,21 +128,17 @@ models:
         grain: "activity_id"
         primary_key: [activity_id]
         logical_entity: ACTIVITY
-        cleaning: "Rename and retype only; no deduplication."
+        cleaning: "DUP-3: deduplicated on activity_id, keeping the row with the latest due_at (the current version)."
         caveats:
           - "A2: activities rarely match a deal of the deal history, so calls are counted by due month, not per funnel deal."
           - "A4: part of the past activities is never marked done."
           - "X1: the activity export can end earlier than the deal history."
     columns:
       - name: activity_id
-        description: "The activity's id in the CRM; can repeat (A1/DUP-3, 11 ids shared by unrelated activities)."
+        description: "The activity's id in the CRM; deduplicated in staging (DUP-3)."
         config:
           meta: { source_column: activity_id }
-        data_tests:
-          - unique:
-              config:
-                severity: warn
-          - not_null
+        data_tests: [unique, not_null]
       - name: activity_type
         description: "The kind of activity, by its key: meeting = Sales Call 1, sc_2 = Sales Call 2, follow_up = Follow Up Call, after_close_call = After Close Call."
         config:

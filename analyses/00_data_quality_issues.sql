@@ -62,10 +62,9 @@ having count(*) > 1;
 -- 5 deals; they explain all 8 backward stage moves and the 5 deals with two lost reasons.
 -- Assumption: Pipedrive merge — the surviving deal inherits the merged deal's history (two add_time events,
 -- different owners and stage paths per lifecycle). The users export has no role/team column.
--- Model: the funnel counts each deal once per stage, by its first entry (dedup at the final aggregation level).
--- For per-user reporting the deal should be counted for each lifecycle's owner (sales rep or onboarding team),
--- but whether users are sales or onboarding cannot be determined from this export — this decision requires a
--- stakeholder conversation.
+-- Model: int_pipedrive__deals takes the first creation; int_pipedrive__deal_stage_entries keeps
+-- the first entry per deal and stage, so the second lifecycle's later entries are ignored.
+-- Per-user reporting should count the deal for each lifecycle's owner — needs a stakeholder conversation.
 
 -- D4. A lost reason on every deal, unrelated to how far it got (process).
 with highest as (  -- the furthest stage each deal reached
@@ -140,7 +139,7 @@ select
     count(*) as nr_rows
 from counted;
 -- 22 | 11 | 4579
--- Decided: duplicates, a data quality issue; cleansing per the domain process after review by the business stakeholder.
+-- Decided: duplicates; staging deduplicates on activity_id, keeping the latest due_at. Unique test at error in staging.
 
 -- A2. Activities do not belong to the deals (process or export): deal_id almost never matches.
 with deals as (  -- the deals known from the change log

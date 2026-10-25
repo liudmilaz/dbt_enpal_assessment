@@ -1,9 +1,6 @@
 -- One row per deal (DEAL and OWNER_ASSIGNMENT in the logical model): there is no deals table, so the deal is derived
--- from its change history. Flags D1 to D3 make the known issues filterable per deal.
--- D3 (has_two_lifecycles): 5 deals carry two creation events — likely a Pipedrive merge where the surviving deal
--- inherits the merged deal's history. Each lifecycle has its own owners and stage path. The funnel counts such a
--- deal once per stage (by first entry). Per-user slicing should count the deal for each lifecycle's owner; the
--- users export has no role/team column, so the sales-vs-onboarding split needs a stakeholder conversation.
+-- from its change history. Known issues are handled upstream (D1/D2: backfill, DUP-3: staging dedup) or downstream
+-- (DUP-6: funnel exclusion). D3 (two lifecycles) is handled by the first-entry logic in stage entries.
 
 -- the typed change log
 with changes as (
@@ -40,9 +37,7 @@ stage_path as (
         deal_id,
         min_by(stage_id, entered_at) as first_stage_id,
         max(stage_id) as highest_stage_id,
-        count(*) as recorded_stages,
-        min(entered_at) as first_stage_entered_at,
-        boolor_agg(stage_id = 6) as entered_closing
+        min(entered_at) as first_stage_entered_at
     from {{ ref('int_pipedrive__deal_stage_entries') }}
     group by deal_id
 )
@@ -56,13 +51,9 @@ select
     s.first_stage_id,
     s.first_stage_entered_at,
     s.highest_stage_id,
-    s.recorded_stages,
     a.last_lost_reason_id,
     a.last_lost_reason_at,
-    s.recorded_stages < s.highest_stage_id as has_skipped_stage,                          -- D1: fewer recorded stages than reached
-    s.highest_stage_id >= 7 and not s.entered_closing as is_after_sale_without_closing,   -- D2: stage 7 to 9 without Closing
-    a.creation_events > 1 as has_two_lifecycles,                                         -- D3: two creation events under one deal_id
-    a.last_lost_reason_id = 5 as is_duplicate_entry                                      -- DUP-6: lost reason Duplicate Entry
+    a.last_lost_reason_id = 5 as is_duplicate_entry  -- DUP-6: lost reason Duplicate Entry
 from deal_attributes a
 inner join stage_path s
     on s.deal_id = a.deal_id

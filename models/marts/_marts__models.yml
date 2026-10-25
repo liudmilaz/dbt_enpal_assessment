@@ -26,9 +26,10 @@ models:
   - name: rep_sales_funnel_monthly
     description: >
       The task's report: one row per month and funnel step, from var report_start_month to var report_end_month,
-      zero-filled. deals_count: stage steps count distinct deals whose first entry into the stage (recorded or inferred)
-      falls in the month; steps 2.1 and 3.1 count distinct deal ids with a call due in the month (done only, var
-      calls_done_only), which are not the funnel deals (A2) and are 0 for months after the activity export ends (X1).
+      zero-filled. Stage steps count distinct funnel-eligible deals (int_pipedrive__funnel_deals, DUP-6 excluded)
+      whose first entry into the stage (recorded or inferred) falls in the month; steps 2.1 and 3.1 count distinct
+      deal ids with a call due in the month (done only, var calls_done_only), which are not the funnel deals (A2)
+      and are 0 for months after the activity export ends (X1).
     config:
       contract: { enforced: true }
       meta:
@@ -141,11 +142,5 @@ models:
               arguments: { min_value: 0 }
       - name: highest_stage_id
         description: "Furthest stage reached."
-      - name: has_skipped_stage
-        description: "D1."
-      - name: is_after_sale_without_closing
-        description: "D2."
-      - name: has_two_lifecycles
-        description: "D3: two creation events under one deal_id (likely a Pipedrive merge). Per-user reporting should count the deal for each lifecycle's owner — needs a stakeholder decision."
       - name: is_duplicate_entry
         description: "DUP-6: lost reason Duplicate Entry; excluded from the funnel report."

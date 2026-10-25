@@ -63,10 +63,9 @@ sources:
                 Assumption: Pipedrive merge — when a rep merges two duplicate deals, the surviving deal keeps its id but inherits
                 the merged deal's history, so two add_time events appear under one id.
                 Improve (CRM admin): prevent merges that produce ambiguous history, or export the merge record.
-                Handled: int_pipedrive__deals takes the first creation and flags has_two_lifecycles; the funnel counts each deal_id
-                once per stage (first entry). For per-user reporting the deal should be counted for each owner's lifecycle — this
-                decision requires a stakeholder conversation (the users export has no role or team, so sales vs onboarding cannot
-                be distinguished from this data alone).
+                Handled: int_pipedrive__deals takes the first creation; int_pipedrive__deal_stage_entries keeps the first entry per
+                deal and stage, so the second lifecycle's later entries are ignored. Per-user reporting should count the deal for
+                each lifecycle's owner — this needs a stakeholder conversation (the users export has no role or team column).
               arguments: { combination_of_columns: [deal_id] }
               config:
                 where: "changed_field_key = 'add_time'"

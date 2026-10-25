@@ -7,8 +7,8 @@ models:
   - name: int_pipedrive__deals
     description: >
       One row per deal, derived from the change history (there is no deals table). created_at is the first
-      add_time; first and last owner; last lost reason (a closure label, D4: not an outcome). Flags for the known
-      issues: has_skipped_stage (D1), is_after_sale_without_closing (D2), has_two_lifecycles (D3).
+      add_time; first and last owner; last lost reason (a closure label, D4: not an outcome). Known issues are
+      handled upstream (D1/D2: backfill, DUP-3: staging dedup) or downstream (DUP-6: funnel exclusion).
     config:
       meta: { grain: deal_id, primary_key: [deal_id] }
     columns:
@@ -35,14 +35,24 @@ models:
         description: "First entry into stage 1, the date of step 1 by default (var step_1_date)."
       - name: highest_stage_id
         description: "Furthest stage recorded; the backfill fills stages 1 to this one."
-      - name: has_skipped_stage
-        description: "D1: fewer recorded stages than the highest stage."
-      - name: is_after_sale_without_closing
-        description: "D2: reached stage 7 to 9 without a recorded Closing; the backfill counts it under Closing."
-      - name: has_two_lifecycles
-        description: "D3: two creation events under one deal_id (likely a Pipedrive merge). The funnel counts the deal once per stage, by its first entry. Per-user reporting should count the deal for each lifecycle's owner — this needs a stakeholder decision."
       - name: is_duplicate_entry
         description: "DUP-6: last lost reason is Duplicate Entry; excluded from the funnel when var exclude_duplicate_entry_deals is true."
+
+  - name: int_pipedrive__funnel_deals
+    description: >
+      Deals eligible for the funnel report: all deals from int_pipedrive__deals minus Duplicate Entry deals (DUP-6)
+      when var exclude_duplicate_entry_deals is true. fct_deals keeps all deals with the flag for the Deals Overview.
+    config:
+      meta: { grain: deal_id, primary_key: [deal_id] }
+    columns:
+      - name: deal_id
+        description: "The sales opportunity, filtered for funnel eligibility."
+        data_tests: [unique, not_null]
+      - name: created_at
+        description: "First creation time of the deal."
+        data_tests: [not_null]
+      - name: first_stage_entered_at
+        description: "First entry into stage 1."
 
   - name: int_pipedrive__deal_stage_entries
     description: "One row per deal and recorded stage, dated by the first entry: a re-entry of a stage already entered counts once."
@@ -91,12 +101,8 @@ models:
       meta: { grain: activity_id, primary_key: [activity_id] }
     columns:
       - name: activity_id
-        description: "The call's id in the CRM; can repeat (A1/DUP-3)."
-        data_tests:
-          - unique:
-              config:
-                severity: warn
-          - not_null
+        description: "The call's id in the CRM; deduplicated in staging (DUP-3)."
+        data_tests: [unique, not_null]
       - name: funnel_step
         description: "The funnel step the call is: '2.1' for Sales Call 1 (meeting), '3.1' for Sales Call 2 (sc_2)."
         data_tests:
