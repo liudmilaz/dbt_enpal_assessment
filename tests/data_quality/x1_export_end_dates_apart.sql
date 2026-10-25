@@ -1,39 +1,29 @@
 {{ config(
+    severity='error',
     tags=['dq_known_issue', 'dq_export'],
-    meta={'issue': 'X1', 'owner': 'crm_admin', 'quality_dimension': 'freshness', 'description': 'Found (EDA 00 X1, 07 #24): the tables were exported at different times and end on different dates. Improve (CRM admin): one cut-off for all exports. Handled: the report keeps the late months, zero-filled for the call steps.'}
+    meta={'issue': 'X1', 'owner': 'crm_admin', 'quality_dimension': 'freshness', 'description': 'Found (EDA 00 X1, 07 #24): the activity export ends months before the deal history, although both come from one CRM. Improve (CRM admin): one cut-off for all exports. Handled: the report keeps the late months, zero-filled for the call steps 2.1 and 3.1.'}
 ) }}
 
--- last date per table
-with table_ends as (
+-- the end of the deal history: the export cut-off
+with deal_changes_end as (
     select
-        'deal_changes' as table_name,
-        max(change_time) as last_at
+        max(change_time) as deal_changes_last_at
     from {{ source('pipedrive', 'deal_changes') }}
-    union all
-    select
-        'activity' as table_name,
-        max(due_to) as last_at
-    from {{ source('pipedrive', 'activity') }}
-    union all
-    select
-        'users' as table_name,
-        max(modified) as last_at
-    from {{ source('pipedrive', 'users') }}
 ),
 
--- the reference: the end of the deal history
-deal_changes_end as (
+-- the end of the activity export
+activity_end as (
     select
-        last_at as deal_changes_last_at
-    from table_ends
-    where table_name = 'deal_changes'
+        max(due_to) as activity_last_at
+    from {{ source('pipedrive', 'activity') }}
 )
 
--- one failed row per table that ends more than 31 days earlier
+-- one failed row when the activity export ends more than 31 days before the deal history (the grain is the table)
 select
-    t.table_name,
-    t.last_at,
-    e.deal_changes_last_at
-from table_ends t
+    'activity' as table_name,
+    a.activity_last_at,
+    e.deal_changes_last_at,
+    datediff('day', a.activity_last_at, e.deal_changes_last_at) as days_apart
+from activity_end a
 cross join deal_changes_end e
-where t.last_at < {{ dbt.dateadd('day', -31, 'e.deal_changes_last_at') }}  -- 31 days before the end of the deal history
+where a.activity_last_at < {{ dbt.dateadd('day', -31, 'e.deal_changes_last_at') }}  -- more than a month apart

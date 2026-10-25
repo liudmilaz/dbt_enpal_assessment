@@ -1,12 +1,16 @@
 {{ config(
+    severity='error',
     tags=['dq_known_issue', 'dq_duplicates'],
-    meta={'issue': 'DUP-6', 'owner': 'sales_ops', 'quality_dimension': 'accuracy', 'description': 'Found (EDA 07 #26-27, 08 B5b): deals lost as Duplicate Entry still reached Closing or later, so duplicates are not caught early. Improve (sales ops): merge duplicate leads before qualification. Handled: duplicates are kept as deals; whether to drop them from the funnel is open (DUP-6).'}
+    meta={'issue': 'DUP-6', 'owner': 'sales_ops', 'quality_dimension': 'accuracy', 'description': 'Found (EDA 07 #26-27, 08 B5b): deals lost as Duplicate Entry still reached Closing or later, so duplicates are not caught early. Improve (sales ops): merge duplicate leads before qualification. Handled: int_pipedrive__deals drops every deal with a Duplicate Entry lost reason, also when it is not the deal\'s last lost reason (D3), so they are not in the funnel.'}
 ) }}
 
--- deals whose lost reason is Duplicate Entry
+-- lost-reason events that say Duplicate Entry
 with duplicate_entries as (
-    select distinct
-        deal_id
+    select
+        deal_id,
+        changed_field_key,
+        change_time,
+        new_value
     from {{ source('pipedrive', 'deal_changes') }}
     where changed_field_key = 'lost_reason'  -- lost reasons only
         and new_value = '5'                  -- Duplicate Entry
@@ -22,9 +26,12 @@ furthest_stages as (
     group by deal_id
 )
 
--- one failed row per Duplicate Entry deal that got to Closing or further
+-- one failed row per raw Duplicate Entry event of a deal that got to Closing or further
 select
     d.deal_id,
+    d.changed_field_key,
+    d.change_time,
+    d.new_value,
     f.furthest_stage_id
 from duplicate_entries d
 inner join furthest_stages f

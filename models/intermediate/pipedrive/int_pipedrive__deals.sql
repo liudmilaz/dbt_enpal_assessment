@@ -26,7 +26,8 @@ deal_attributes as (
         count(owner_user_id) as owner_changes,
         max_by(lost_reason_id, case when lost_reason_id is not null then change_time end) as last_lost_reason_id,
         max(case when lost_reason_id is not null then change_time end) as last_lost_reason_at,
-        count(lost_reason_id) as lost_reason_events
+        count(lost_reason_id) as lost_reason_events,
+        count_if(lost_reason_id = 5) as duplicate_entry_events
     from changes
     group by deal_id
 ),
@@ -57,5 +58,6 @@ from deal_attributes a
 inner join stage_path s
     on s.deal_id = a.deal_id
 -- DUP-6: reps label accidental duplicates as "Duplicate Entry" (lost reason 5);
--- these are not real sales opportunities and are excluded from the funnel
-where coalesce(a.last_lost_reason_id, 0) <> 5
+-- these are not real sales opportunities and are excluded from the funnel,
+-- also when Duplicate Entry is the first of two lifecycles' lost reasons (D3)
+where a.duplicate_entry_events = 0

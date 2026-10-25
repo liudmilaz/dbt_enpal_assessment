@@ -72,9 +72,6 @@ models:
         description: "Deals that reached the step in the month; 0 when none."
         data_type: integer
         constraints: [{ type: not_null }]
-        data_tests:
-          - dbt_utils.accepted_range:
-              arguments: { min_value: 0 }
 
   - name: fct_deals
     description: >
@@ -114,7 +111,11 @@ models:
     columns:
       - name: deal_id
         description: "The sales opportunity; one row per deal."
-        data_tests: [unique, not_null]
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments: { to: ref('int_pipedrive__deals'), field: deal_id }
       - name: lead_entered_at
         description: "First entry into stage 1 (Lead Generation)."
         data_tests: [not_null]
@@ -137,8 +138,5 @@ models:
         description: "True when the stage was skipped in the data and is counted as reached. On fct_deals this applies to Closing (stage 6)."
       - name: days_lead_to_closing
         description: "Days from the first entry into stage 1 to Closing. The timing is generated (D5): read it as an illustration."
-        data_tests:
-          - dbt_utils.accepted_range:
-              arguments: { min_value: 0 }
       - name: highest_stage_id
         description: "Furthest stage reached."

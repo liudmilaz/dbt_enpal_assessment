@@ -18,8 +18,8 @@ options as (
         f.field_name,
         cast(o.value:id::varchar as integer) as option_id,
         o.value:label::varchar as option_label
-    from fields_with_options f,
-        lateral flatten(input => f.field_value_options) o
+    from fields_with_options f
+    inner join lateral flatten(input => f.field_value_options) o
 )
 
 select

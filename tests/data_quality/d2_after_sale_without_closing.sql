@@ -1,31 +1,37 @@
 {{ config(
+    severity='error',
     tags=['dq_known_issue', 'dq_process'],
-    meta={'issue': 'D2', 'owner': 'sales_ops', 'quality_dimension': 'completeness', 'description': 'Found (EDA 00 D2): deals reach an after-sale stage (7 to 9) without a recorded Closing (6). Improve (sales ops): record the Closing. Handled: the backfill counts them under Closing; fct_deals.is_closing_inferred marks them.'}
+    meta={'issue': 'D2', 'owner': 'sales_ops', 'quality_dimension': 'completeness', 'description': 'Found (EDA 00 D2): deals reach an after-sale stage (7 to 9) without a recorded Closing (6). Improve (sales ops): record the Closing. Handled: the backfill counts them under Closing; fct_deals.is_inferred marks the inferred Closing.'}
 ) }}
 
 -- stage moves only, with the stage id typed after the filter
 with stage_events as (
     select
         deal_id,
+        changed_field_key,
+        change_time,
+        new_value,
         {{ dbt.safe_cast('new_value', api.Column.translate_type('integer')) }} as stage_id
     from {{ source('pipedrive', 'deal_changes') }}
     where changed_field_key = 'stage_id'  -- new_value is a stage id only for this key
 ),
 
--- per deal: the furthest stage and whether Closing was entered
-deal_stages as (
+-- deals that reached an after-sale stage but never entered Closing
+deals_without_closing as (
     select
-        deal_id,
-        max(stage_id) as furthest_stage_id,
-        sum(case when stage_id = 6 then 1 else 0 end) as closing_entries
+        deal_id
     from stage_events
     group by deal_id
+    having max(stage_id) >= 7                 -- Implementation, Follow-up or Renewal reached
+        and count_if(stage_id = 6) = 0        -- Closing never recorded
 )
 
--- one failed row per after-sale deal without a Closing
+-- one failed row per raw stage move of those deals: the path that skips Closing
 select
-    deal_id,
-    furthest_stage_id
-from deal_stages
-where furthest_stage_id >= 7  -- Implementation, Follow-up or Renewal reached
-    and closing_entries = 0   -- Closing never recorded
+    s.deal_id,
+    s.changed_field_key,
+    s.change_time,
+    s.new_value
+from stage_events s
+inner join deals_without_closing d
+    on d.deal_id = s.deal_id

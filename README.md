@@ -54,18 +54,28 @@ The open questions for the business (KPI owner, CRM admin) and the evidence behi
 
 ## Tests
 
-- **Raw layer** (`models/sources/pipedrive/`, `tests/data_quality/`): every primary and foreign key, the domains, and the known issues of the export as warn-level tests named by issue id (for example `a1_repeated_activity_id`, `d1_deals_with_skipped_stages`), plus Elementary volume, freshness, dimension and schema monitors.
-- **Staging, intermediate, marts**: keys, relationships, accepted values at error; a unit test of the backfill rule; a reconciliation of the report against the stage entries.
-- `dbt build` on a fresh clone: 166 pass, 19 warn (the known issues of the export), 0 errors.
+Two kinds of tests only: keys, and the data quality issues found in the analysis.
+
+- **Keys, every layer**: unique + not_null on primary and alternate keys, not_null + relationships on foreign keys (on the raw layer also the keys inside `deal_changes.new_value`).
+- **Known data quality issues** (`tests/data_quality/`, tag `dq_known_issue`): one singular test per issue, named by its id (`a1_repeated_activity_id`, `d1_deals_with_skipped_stages`, ...), with Found / Improve / Handled in its meta. Each returns the affected raw rows at the table's own grain, and fails (severity error).
+- **Pipeline rules**: a unit test of the backfill rule, the funnel step checks and a reconciliation of the report against the stage entries.
+
+`dbt build` uses the default selector `pipeline` (`selectors.yml`), which leaves the known issues out, so the pipeline is not blocked by defects of the export it already handles. `bash scripts/dq_report.sh` runs every test and serves the Elementary report: the dashboard gives the overview, with the known issues as failures; each issue's test result page lists its affected raw rows (duplicates, unmatched keys, skipped stages, ...).
+
+**Still to implement**, once the export is loaded on a schedule and agreed with the business:
+- source freshness (`loaded_at_field`, `warn_after` / `error_after`) per raw table;
+- anomaly detection (Elementary volume, freshness, dimension and schema monitors), once there is load history to train on;
+- custom tests per business process, agreed with sales ops and the CRM admin (for example call outcomes, lead routing, stage rules).
 
 ## Repository
 
 | Path | Content |
 |---|---|
-| `models/sources/pipedrive/` | sources with descriptions, keys in `meta`, raw-layer tests and monitors |
+| `models/sources/pipedrive/` | sources with descriptions, keys in `meta`, raw-layer key tests |
 | `models/staging`, `models/intermediate`, `models/marts` | the models |
 | `macros/` | `refresh_src` (test clones), `generate_schema_name` (one schema per layer) |
-| `tests/` | singular tests: raw data quality, funnel step count, report reconciliation |
+| `tests/` | singular tests: known data quality issues and raw keys, funnel step count, report reconciliation |
+| `selectors.yml` | `pipeline` (default, without the known issues), `dq_report` (every test) |
 | `analyses/` | exploratory analysis per raw table, Snowflake SQL with results |
 | `scripts/` | Snowflake admin and load scripts, data quality report |
 | `lightdash/` | scripts for an exploratory Lightdash dashboard (optional) |

@@ -1,0 +1,18 @@
+selectors:
+  # dbt build / test without --select: the pipeline, without the known data quality issues of the raw export,
+  # which fail by design (severity error) and would otherwise skip every downstream model
+  - name: pipeline
+    default: true
+    definition:
+      union:
+        - method: fqn
+          value: "*"
+        - exclude:
+            - method: tag
+              value: dq_known_issue
+
+  # scripts/dq_report.sh: every test, known issues included, for the Elementary report
+  - name: dq_report
+    definition:
+      method: fqn
+      value: "*"

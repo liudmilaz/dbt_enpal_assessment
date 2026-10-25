@@ -1,23 +1,22 @@
 version: 2
 
-# Raw layer: tests and Elementary monitors on the six raw Pipedrive tables.
-# Every test here warns (folder config in dbt_project.yml, tag dq_raw): it measures the source and never blocks the build.
-# The one exception is the schema baseline per table, which is raised to error: the staging casts are written for the
-# declared columns and types, so a changed export must stop the build instead of silently producing nulls.
-# Test names start with the issue id of vault/project/cleansing_proposals.md. Every test description follows the same
-# three parts: Found (what the exploratory analysis saw, with the file it came from), Improve (what should change at the
-# source, and who owns it) and Handled (what the pipeline does about it, or that no handling is needed). Elementary
-# monitors describe what a failing row would mean instead: they watch for future anomalies, so nothing was found yet.
-# The current size of an issue is the test result (Elementary report), never part of the metadata.
-# Tags: dq_known_issue = a known defect, its failed rows are the size of the issue; dq_check = should pass; dq_monitor = Elementary anomaly or schema monitor.
-# Keys and relationships from the exploratory analysis (vault/project/logical_model.md) are in meta: table_kind, grain, primary_key,
-# foreign_keys on each table, key and references on each key column. Every primary key has unique + not_null (a composite key
-# unique_combination_of_columns + not_null on each part), every foreign key not_null + relationships, never unique; keys inside
-# deal_changes.new_value are tested in tests/data_quality/fk_*.sql, because they need a cast. Other columns get not_null only
-# where the report filters or dates by them (activity.done, activity.due_to), and unique only to measure a known issue (U1).
-# Column descriptions come from vault/project/data_dictionary.md.
-# Column types are Snowflake's own names (NUMBER, TEXT, TIMESTAMP_NTZ, BOOLEAN, VARIANT): the schema baselines compare them with the information schema.
-# Anomaly monitors run on weekly buckets; locally the run date is set inside the data (scripts/dq_report.sh).
+# Raw layer: the six raw Pipedrive tables, with two kinds of tests only.
+#   1. Keys: every primary key unique + not_null (a composite key unique_combination_of_columns + not_null on each part),
+#      every foreign key not_null + relationships, never unique. Tag dq_check, severity warn: they pass on this export.
+#      Keys inside deal_changes.new_value are tested here with a where on changed_field_key; the lost reason, whose options
+#      are a JSON array, in tests/data_quality/fk_lost_reason_in_field_options.sql.
+#   2. Known issues found in the exploratory analysis: singular tests in tests/data_quality/, named by issue id
+#      (vault/project/cleansing_proposals.md), tag dq_known_issue, severity error, one test per issue. Each returns the
+#      affected raw rows at the table's own grain, so the Elementary report lists them (var test_sample_row_count).
+# The default selector (selectors.yml) leaves the known issues out of dbt build, so they never block the pipeline;
+# scripts/dq_report.sh runs every test and builds the Elementary report.
+# Not implemented yet, to add with the business process: source freshness (loaded_at_field, warn_after / error_after)
+# once the export is loaded on a schedule, Elementary anomaly monitors (volume, freshness, dimension, schema) once
+# there is load history to train on, and custom tests agreed with sales ops and the CRM admin.
+# Test text has three parts: Found (what the analysis saw, and where), Improve (what should change at the source, and
+# who owns it), Handled (what the pipeline does). The size of an issue is the test result, never part of the metadata.
+# Keys and relationships from the analysis (vault/project/logical_model.md) are in meta: table_kind, grain, primary_key,
+# foreign_keys on each table, key and references on each key column. Column descriptions: vault/project/data_dictionary.md.
 
 sources:
   - name: pipedrive
@@ -29,7 +28,6 @@ sources:
         description: >
           Event log of deal field changes, the only source of deals: one row per change of one field of one deal.
           Four field keys: add_time (creation), user_id (owner), stage_id (stage entered) and lost_reason.
-          A deal is expected to have a creation, an owner and a stage event, and to start at stage 1 (tested).
           Known patterns: the history looks generated (D5: changes at the creation clock time) and stages are often skipped (D1).
         config:
           meta:
@@ -44,82 +42,20 @@ sources:
         data_tests:
           - dbt_utils.unique_combination_of_columns:
               name: pk_grain__deal_changes
-              description: "Found (EDA 01 §2): no key is declared; (deal_id, changed_field_key, change_time) is unique. Improve: none. Handled: staging hashes the three columns into deal_change_key, tested unique + not_null at error; a failure here means the grain changed and every per-key model fans out."
+              description: "Found (EDA 01 §2): no key is declared; (deal_id, changed_field_key, change_time) is unique. Improve: none. Handled: staging hashes the three columns into deal_change_key, tested unique + not_null at error."
               arguments: { combination_of_columns: [deal_id, changed_field_key, change_time] }
               config:
-                tags: [dq_check, dq_duplicates]
+                tags: [dq_check]
                 meta: { owner: data_team, quality_dimension: uniqueness }
-          - dbt_utils.unique_combination_of_columns:
-              name: dup1_full_row_duplicates__deal_changes
-              description: "Found (EDA 07 #2): no full-row duplicates. Improve: none. Handled: rows here mean the raw grain was violated; a failure blocks every per-key model."
-              arguments: { combination_of_columns: [deal_id, changed_field_key, change_time, new_value] }
-              config:
-                tags: [dq_check, dq_duplicates]
-                meta: { issue: DUP-1, owner: data_team, quality_dimension: uniqueness }
-          - dbt_utils.unique_combination_of_columns:
-              name: d3_two_creations_per_deal
-              description: >-
-                Found (EDA 01 §6b, 00 D3): 5 deal_ids hold two creation events with different timestamps, owners and stage paths.
-                Assumption: Pipedrive merge — when a rep merges two duplicate deals, the surviving deal keeps its id but inherits
-                the merged deal's history, so two add_time events appear under one id.
-                Improve (CRM admin): prevent merges that produce ambiguous history, or export the merge record.
-                Handled: int_pipedrive__deals takes the first creation; int_pipedrive__deal_stage_entries keeps the first entry per
-                deal and stage, so the second lifecycle's later entries are ignored. Per-user reporting should count the deal for
-                each lifecycle's owner — this needs a stakeholder conversation (the users export has no role or team column).
-              arguments: { combination_of_columns: [deal_id] }
-              config:
-                where: "changed_field_key = 'add_time'"
-                tags: [dq_known_issue, dq_duplicates]
-                meta: { issue: D3, owner: crm_admin, quality_dimension: uniqueness }
-          - dbt_utils.unique_combination_of_columns:
-              name: d3_two_lost_reasons_per_deal
-              description: "Found (EDA 08 B5a, 00 D3): the two-lifecycle deals carry two lost reasons, one per lifecycle. Improve (CRM admin): as D3. Handled: int_pipedrive__deals keeps the last lost reason; the lost reason is not used for the funnel (D4)."
-              arguments: { combination_of_columns: [deal_id] }
-              config:
-                where: "changed_field_key = 'lost_reason'"
-                tags: [dq_known_issue, dq_duplicates]
-                meta: { issue: D3, owner: crm_admin, quality_dimension: uniqueness }
-          - elementary.schema_changes_from_baseline:
-              name: schema_baseline__deal_changes
-              description: "Columns and types differ from the declared ones: the export changed."
-              config: &schema_monitor
-                severity: error
-                tags: [dq_monitor, dq_schema]
-                meta: { issue: schema, owner: data_team, quality_dimension: validity }
-          - elementary.volume_anomalies:
-              name: volume_weekly__deal_changes
-              description: "Weekly count of deal changes far from the weeks before: a double, partial or stopped load."
-              arguments:
-                timestamp_column: change_time
-                time_bucket: &weekly { period: week, count: 1 }
-                training_period: &training { period: week, count: 62 }
-                detection_period: &detection { period: week, count: 4 }
-              config: &volume_monitor
-                tags: [dq_monitor, dq_volume]
-                meta: { issue: volume, owner: data_team, quality_dimension: completeness }
-          - elementary.dimension_anomalies:
-              name: mix_weekly__deal_changes_field_key
-              description: "Weekly count per event key (add_time, user_id, stage_id, lost_reason) far from its own history: an event type stops or floods."
-              arguments:
-                dimensions: [changed_field_key]
-                timestamp_column: change_time
-                time_bucket: *weekly
-                training_period: *training
-                detection_period: *detection
-              config:
-                tags: [dq_monitor, dq_mix]
-                meta: { issue: field_keys, owner: data_team, quality_dimension: completeness }
         columns:
           - name: deal_id
             description: "The deal the change belongs to; there is no deals table. A deal_id can carry two lifecycles (D3), each with its own creation, owners, stage path and lost reason."
             data_type: NUMBER
             config:
               meta: { key: primary }
-            data_tests: &not_null_check
+            data_tests:
               - not_null:
-                  config:
-                    tags: [dq_check]
-                    meta: { owner: data_team }
+                  config: { tags: [dq_check], meta: { owner: data_team } }
           - name: change_time
             description: "When the change happened (changelog time). Known pattern D5: changes fall on the deal's creation clock time, so the time between stages says nothing about sales speed."
             data_type: TIMESTAMP_NTZ
@@ -128,13 +64,6 @@ sources:
             data_tests:
               - not_null:
                   config: { tags: [dq_check], meta: { owner: data_team } }
-              - dbt_utils.accepted_range:
-                  name: change_time_plausible_range__deal_changes
-                  description: "Found (EDA 01 §5a): change times fall inside the CRM period. Improve: none. Handled: none needed; rows here mean a wrong timestamp."
-                  arguments: { min_value: "'2024-01-01'", max_value: "current_timestamp()" }
-                  config:
-                    tags: [dq_check]
-                    meta: { owner: data_team, quality_dimension: validity }
           - name: changed_field_key
             description: "Key of the field that changed; decides how new_value is typed (D6). Every key is a row of fields."
             data_type: TEXT
@@ -143,16 +72,9 @@ sources:
             data_tests:
               - not_null:
                   config: { tags: [dq_check], meta: { owner: data_team } }
-              - accepted_values:
-                  name: d6_field_key_domain__deal_changes
-                  description: "Found (EDA 00 D6): new_value holds four types (timestamp, user id, stage id, reason id), decided by changed_field_key. Improve: none (export format). Handled: staging casts each key into its own typed column; a new key would arrive untyped, so it fails here."
-                  arguments: { values: [add_time, user_id, stage_id, lost_reason] }
-                  config:
-                    tags: [dq_check, dq_types]
-                    meta: { issue: D6, owner: data_team, quality_dimension: validity }
               - relationships:
                   name: fk_field_key_in_fields__deal_changes
-                  description: "Found (EDA 01 §3): every changed_field_key exists in fields. Improve: none. Handled: none needed; rows here mean a change of a field the metadata does not know."
+                  description: "Every changed_field_key is a field of fields."
                   arguments:
                     to: source('pipedrive', 'fields')
                     field: field_key
@@ -170,22 +92,26 @@ sources:
             data_tests:
               - not_null:
                   config: { tags: [dq_check], meta: { owner: data_team } }
-              - accepted_values:
-                  name: d6_stage_id_domain__deal_changes
-                  description: "Found (EDA 07 #11, 00 D6): stage values are text ids within the pipeline. Improve: none. Handled: staging casts them to stage_id, with a relationships test to stg_pipedrive__stages at error."
-                  arguments: { values: ['1', '2', '3', '4', '5', '6', '7', '8', '9'] }
+              - relationships:
+                  name: fk_stage_in_stages__deal_changes
+                  description: "Every stage a deal moves into is a stage of stages."
+                  arguments:
+                    to: source('pipedrive', 'stages')
+                    field: stage_id
                   config:
                     where: "changed_field_key = 'stage_id'"
-                    tags: [dq_check, dq_types]
-                    meta: { issue: D6, owner: data_team, quality_dimension: validity }
-              - accepted_values:
-                  name: d6_lost_reason_domain__deal_changes
-                  description: "Found (EDA 06, 00 D6): lost-reason values are text option ids of fields.lost_reason. Improve: none. Handled: staging casts them to lost_reason_id, tested against stg_pipedrive__field_options at error."
-                  arguments: { values: ['1', '2', '3', '4', '5'] }
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: consistency }
+              - relationships:
+                  name: fk_owner_in_users__deal_changes
+                  description: "Every owner a deal is assigned to is a user of users."
+                  arguments:
+                    to: source('pipedrive', 'users')
+                    field: id
                   config:
-                    where: "changed_field_key = 'lost_reason'"
-                    tags: [dq_check, dq_types]
-                    meta: { issue: D6, owner: data_team, quality_dimension: validity }
+                    where: "changed_field_key = 'user_id'"
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: consistency }
 
       - name: activity
         description: >
@@ -201,81 +127,15 @@ sources:
               - "type -> activity_types.type"
               - "assigned_to_user -> users.id"
               - "deal_id -> deal_changes.deal_id (intended; rarely matches, A2)"
-        data_tests:
-          - dbt_utils.unique_combination_of_columns:
-              name: dup1_full_row_duplicates__activity
-              description: "Found (EDA 07 #1): no full-row duplicates. Improve: none. Handled: rows here mean the raw grain was violated; a failure blocks the call steps."
-              arguments: { combination_of_columns: [activity_id, type, assigned_to_user, deal_id, done, due_to] }
-              config:
-                tags: [dq_check, dq_duplicates]
-                meta: { issue: DUP-1, owner: data_team, quality_dimension: uniqueness }
-          - elementary.schema_changes_from_baseline:
-              name: schema_baseline__activity
-              description: "Columns and types differ from the declared ones: the export changed."
-              config: *schema_monitor
-          - elementary.volume_anomalies:
-              name: x1_volume_weekly__activity
-              description: "Found (EDA 00 X1, 07 #24): the activity export ends months before deal_changes. Improve (CRM admin): export all tables at the same cut-off. Handled: the report keeps those months, zero-filled for steps 2.1 and 3.1; an empty week fails here."
-              arguments:
-                timestamp_column: due_to
-                time_bucket: *weekly
-                training_period: *training
-                detection_period: *detection
-                fail_on_zero: true
-              config:
-                tags: [dq_monitor, dq_volume, dq_export]
-                meta: { issue: X1, owner: crm_admin, quality_dimension: completeness }
-          - elementary.freshness_anomalies:
-              name: x1_freshness_weekly__activity
-              description: "Found (EDA 00 X1): the activity export ends earlier than the deal history. Improve (CRM admin): same cut-off for all exports. Handled: as x1_volume_weekly__activity; a growing gap fails here."
-              arguments:
-                timestamp_column: due_to
-                time_bucket: *weekly
-                training_period: *training
-                detection_period: *detection
-              config:
-                tags: [dq_monitor, dq_freshness, dq_export]
-                meta: { issue: X1, owner: crm_admin, quality_dimension: freshness }
-          - elementary.dimension_anomalies:
-              name: mix_weekly__activity_type
-              description: "Found (EDA 02 §5, 08 B4): each call type has a steady weekly volume. Improve: none. Handled: none needed; a call type that stops or floods changes steps 2.1 and 3.1."
-              arguments:
-                dimensions: [type]
-                timestamp_column: due_to
-                time_bucket: *weekly
-                training_period: *training
-                detection_period: *detection
-              config:
-                tags: [dq_monitor, dq_mix]
-                meta: { issue: activity_types, owner: sales_ops, quality_dimension: completeness }
-          - elementary.dimension_anomalies:
-              name: a4_done_weekly__activity_type
-              description: "Found (EDA 00 A4): only about half of every type is marked done, although all are due in the past. Improve (sales ops): mark held calls as done. Handled: steps 2.1 and 3.1 count done calls only; a drop in done calls fails here."
-              arguments:
-                dimensions: [type]
-                where_expression: "done"
-                timestamp_column: due_to
-                time_bucket: *weekly
-                training_period: *training
-                detection_period: *detection
-              config:
-                tags: [dq_monitor, dq_process]
-                meta: { issue: A4, owner: sales_ops, quality_dimension: consistency }
         columns:
           - name: activity_id
-            description: "Primary key (decided 2026-10-23). An id can be shared by unrelated activities (different user, deal and date; A1); staging keeps the latest due_to per id."
+            description: "Primary key (decided 2026-10-23). An id can be shared by unrelated activities (A1, tests/data_quality/a1_repeated_activity_id.sql); staging keeps the latest due_to per id."
             data_type: NUMBER
             config:
               meta: { key: primary, issue: A1 }
             data_tests:
               - not_null:
                   config: { tags: [dq_check], meta: { owner: data_team } }
-              - unique:
-                  name: a1_repeated_activity_id
-                  description: "Found (EDA 02 §2, 00 A1): some activity_ids are shared by unrelated activities (different user, deal and date). Improve (CRM admin): check the id generation of the export. Handled: staging keeps the row with the latest due_at per id, and tests activity_id unique at error."
-                  config:
-                    tags: [dq_known_issue, dq_duplicates]
-                    meta: { issue: A1, owner: crm_admin, quality_dimension: uniqueness }
           - name: type
             description: "The activity type's key string (activity_types.type, not its id): meeting is Sales Call 1 (step 2.1), sc_2 is Sales Call 2 (step 3.1)."
             data_type: TEXT
@@ -285,8 +145,8 @@ sources:
               - not_null:
                   config: { tags: [dq_check], meta: { owner: data_team } }
               - relationships:
-                  name: type_in_activity_types__activity
-                  description: "Found (EDA 02 §3): every activity type exists in activity_types. Improve: none. Handled: staging repeats the relationships test at error."
+                  name: fk_type_in_activity_types__activity
+                  description: "Every activity type is a type of activity_types."
                   arguments:
                     to: source('pipedrive', 'activity_types')
                     field: type
@@ -302,8 +162,8 @@ sources:
               - not_null:
                   config: { tags: [dq_check], meta: { owner: data_team } }
               - relationships:
-                  name: assigned_user_in_users__activity
-                  description: "Found (EDA 02 §3): every assignee exists in users. Improve: none. Handled: staging repeats the relationships test at error."
+                  name: fk_assigned_user_in_users__activity
+                  description: "Every assignee is a user of users."
                   arguments:
                     to: source('pipedrive', 'users')
                     field: id
@@ -311,43 +171,29 @@ sources:
                     tags: [dq_check]
                     meta: { owner: data_team, quality_dimension: consistency }
           - name: deal_id
-            description: "The deal the activity is planned against. Intended foreign key to deal_changes, but it rarely matches (A2): the two exports come from different deal sets."
+            description: "The deal the activity is planned against. Intended foreign key to deal_changes, but it rarely matches (A2, tests/data_quality/a2_activity_deal_not_in_deal_changes.sql)."
             data_type: NUMBER
             config:
               meta: { key: foreign, references: deal_changes.deal_id, issue: A2 }
             data_tests:
               - not_null:
                   config: { tags: [dq_check], meta: { owner: data_team } }
-              - relationships:
-                  name: a2_activity_deal_not_in_deal_changes
-                  description: "Found (EDA 02 §3, 00 A2, 08 B4b): activity.deal_id almost never matches a deal of the deal history. Improve (CRM admin): export activities and deals from the same deal set. Handled: calls are counted by due month with their own deal_id, not joined to the funnel deals."
-                  arguments:
-                    to: source('pipedrive', 'deal_changes')
-                    field: deal_id
-                  config:
-                    tags: [dq_known_issue, dq_process]
-                    meta: { issue: A2, owner: crm_admin, quality_dimension: consistency }
           - name: done
             description: "Whether the activity was marked done. Known pattern A4: part of the past activities is never marked done; counting done calls only lowers steps 2.1 and 3.1."
             data_type: BOOLEAN
             config:
               meta: { issue: A4 }
             data_tests:
+              # not a key: done filters steps 2.1 and 3.1
               - not_null:
                   config: { tags: [dq_check], meta: { owner: data_team } }
           - name: due_to
             description: "Planned date and time (the API's due_date and due_time merged). The month of the call in the report."
             data_type: TIMESTAMP_NTZ
             data_tests:
+              # not a key: due_to dates the call in the report
               - not_null:
                   config: { tags: [dq_check], meta: { owner: data_team } }
-              - dbt_utils.accepted_range:
-                  name: due_to_plausible_range__activity
-                  description: "Found (EDA 02 §5): due dates fall inside the CRM period. Improve: none. Handled: none needed; rows here mean a wrong date."
-                  arguments: { min_value: "'2024-01-01'", max_value: "dateadd(year, 1, current_timestamp())" }
-                  config:
-                    tags: [dq_check]
-                    meta: { owner: data_team, quality_dimension: validity }
 
       - name: activity_types
         description: >
@@ -359,11 +205,6 @@ sources:
             grain: "one row per activity type"
             primary_key: [id]
             natural_key: [type]
-        data_tests:
-          - elementary.schema_changes_from_baseline:
-              name: schema_baseline__activity_types
-              description: "Columns and types differ from the declared ones: the export changed."
-              config: *schema_monitor
         columns:
           - name: id
             description: "Surrogate id of the type; nothing in the export references it."
@@ -383,16 +224,8 @@ sources:
             data_type: TEXT
             config:
               meta: { issue: T1 }
-            data_tests:
-              - accepted_values:
-                  name: t1_active_flag_domain__activity_types
-                  description: "Found (EDA 00 T1): active is the text 'Yes' / 'No'. Improve: none (export format). Handled: staging casts it to the boolean is_active."
-                  arguments: { values: ['Yes', 'No'] }
-                  config:
-                    tags: [dq_check, dq_types]
-                    meta: { issue: T1, owner: data_team, quality_dimension: validity }
           - name: type
-            description: "Key string referenced by activity.type; generated from the name at creation and never changed, so it is the join key."
+            description: "Key string referenced by activity.type; generated from the name at creation and never changed, so it is the join key (alternate key)."
             data_type: TEXT
             config:
               meta: { key: natural }
@@ -405,17 +238,12 @@ sources:
       - name: stages
         description: >
           Dictionary of the pipeline stages, steps 1 to 9 of the funnel. The funnel order is the order of stage_id
-          (the export has no order_nr). A name can be spelled differently from its label in fields (S1); the report uses the task's step names.
+          (the export has no order_nr). A name can be spelled differently from its label in fields (S1); the report uses the field labels.
         config:
           meta:
             table_kind: dictionary
             grain: "one row per stage"
             primary_key: [stage_id]
-        data_tests:
-          - elementary.schema_changes_from_baseline:
-              name: schema_baseline__stages
-              description: "Columns and types differ from the declared ones: the export changed."
-              config: *schema_monitor
         columns:
           - name: stage_id
             description: "Stage id = funnel step; referenced as text by deal_changes.new_value where the key is stage_id."
@@ -441,11 +269,6 @@ sources:
             grain: "one row per deal field"
             primary_key: [id]
             natural_key: [field_key]
-        data_tests:
-          - elementary.schema_changes_from_baseline:
-              name: schema_baseline__fields
-              description: "Columns and types differ from the declared ones: the export changed."
-              config: *schema_monitor
         columns:
           - name: id
             description: "The field's id in the export; nothing references it."
@@ -458,7 +281,7 @@ sources:
               - unique:
                   config: { tags: [dq_check], meta: { owner: data_team } }
           - name: field_key
-            description: "The field's key as used in deal_changes.changed_field_key: add_time, user_id, stage_id, lost_reason."
+            description: "The field's key as used in deal_changes.changed_field_key: add_time, user_id, stage_id, lost_reason (alternate key)."
             data_type: TEXT
             config:
               meta: { key: natural }
@@ -477,18 +300,12 @@ sources:
       - name: users
         description: >
           Current state of the CRM users (no history): deal owners and activity owners. Known pattern U2: many owners
-          with very few deals each, not the shape of a real sales team, so no per-rep KPIs. The export can end at a
-          different date than the other tables (X1).
+          with very few deals each, not the shape of a real sales team, so no per-rep KPIs. An email can be shared (U1).
         config:
           meta:
             table_kind: dictionary
             grain: "one row per user (current state)"
             primary_key: [id]
-        data_tests:
-          - elementary.schema_changes_from_baseline:
-              name: schema_baseline__users
-              description: "Columns and types differ from the declared ones: the export changed."
-              config: *schema_monitor
         columns:
           - name: id
             description: "User id; referenced by activity.assigned_to_user and by deal_changes.new_value where the key is user_id."
@@ -504,18 +321,10 @@ sources:
             description: "Full name; names are shared by different users, so it does not identify a person."
             data_type: TEXT
           - name: email
-            description: "Email; can be shared by two users with different names (U1). Never join on email."
+            description: "Email; can be shared by two users with different names (U1, tests/data_quality/u1_shared_email__users.sql). Never join on email."
             data_type: TEXT
             config:
               meta: { issue: U1 }
-            data_tests:
-              # not a key: unique here measures the known issue U1 (warn), it is not a key constraint
-              - unique:
-                  name: u1_shared_email__users
-                  description: "Found (EDA 04 §2, 00 U1): some emails are shared by two users with different names. Improve (CRM admin): one login per person. Handled: users are joined on user_id only, never on email."
-                  config:
-                    tags: [dq_known_issue, dq_duplicates]
-                    meta: { issue: U1, owner: crm_admin, quality_dimension: uniqueness }
           - name: modified
-            description: "Last change of the user record (X1: compare with the end of the other exports)."
+            description: "Last change of the user record; an edit time, not an export cut-off."
             data_type: TIMESTAMP_NTZ

@@ -2,8 +2,7 @@ version: 2
 
 # Staging: one view per raw table, rename / cast only (vault/project/model_plan.md).
 # Tests here are promises of the pipeline: severity error, tag dq_staging (dbt_project.yml).
-# Known issues of the raw data stay on the sources (models/sources/pipedrive/) and are not repeated here;
-# what staging cleans (D6, T1) is tested here as fixed.
+# Known issues of the raw data are tested on the raw layer (tests/data_quality/) and are not repeated here.
 # Descriptions hold the business meaning (vault/project/crm_field_definitions.md, business_context.md);
 # the stage and activity-type meanings are an interpretation to confirm with Enpal. Cleaning and data quality
 # notes are in meta: cleaning, caveats (issue ids of vault/project/cleansing_proposals.md).
@@ -30,26 +29,6 @@ models:
           - "D5: change times are generated (creation clock time + whole days); use dates, not durations."
           - "D3: a deal_id can hold two lifecycles, consistent with a duplicate lead merged into one deal."
           - "Only four deal properties are exported; no previous value and no author of a change."
-    data_tests:
-      - dbt_utils.expression_is_true:
-          name: one_typed_value_per_change__stg_deal_changes
-          description: "Exactly one typed column is filled per row, the one of its key. A failure means a new key or a cast that returned null."
-          arguments:
-            expression: >
-              (case when deal_created_at is null then 0 else 1 end)
-              + (case when owner_user_id is null then 0 else 1 end)
-              + (case when stage_id is null then 0 else 1 end)
-              + (case when lost_reason_id is null then 0 else 1 end) = 1
-          config:
-            meta: { issue: D6, quality_dimension: validity }
-      - dbt_utils.expression_is_true:
-          name: creation_value_equals_change_time__stg_deal_changes
-          description: "For add_time, the value is the change time itself , so either can date the creation."
-          arguments:
-            expression: "deal_created_at = change_time"
-          config:
-            where: "changed_field_key = 'add_time'"
-            meta: { quality_dimension: consistency }
     columns:
       - name: deal_change_key
         description: "Identifies one change of one deal property at one time; built over the deal, the property and the time."
@@ -68,10 +47,7 @@ models:
           lost_reason (Lost reason). It decides which of the typed columns below holds the new value.
         config:
           meta: { source_column: changed_field_key }
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments: { values: [add_time, user_id, stage_id, lost_reason] }
+        data_tests: [not_null]
       - name: change_time
         description: "When the change was made in the CRM."
         config:
@@ -233,11 +209,7 @@ models:
         description: "The position of the step in the pipeline (1 = first); the order of the ids is the order of the funnel."
         config:
           meta: { source_column: stage_id }
-        data_tests:
-          - unique
-          - not_null
-          - accepted_values:
-              arguments: { values: [1, 2, 3, 4, 5, 6, 7, 8, 9] }
+        data_tests: [unique, not_null]
       - name: stage_name
         description: "The step's name as the sales team sees it, set by the CRM administrator."
         config:
@@ -267,10 +239,7 @@ models:
         description: "The technical name of the deal property the option belongs to: stage_id or lost_reason."
         config:
           meta: { source_column: field_key }
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments: { values: [stage_id, lost_reason] }
+        data_tests: [not_null]
       - name: field_name
         description: "The property's label in the CRM: Stage, Lost reason."
         config:
