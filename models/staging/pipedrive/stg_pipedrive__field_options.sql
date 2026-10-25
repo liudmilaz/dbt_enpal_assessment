@@ -22,47 +22,33 @@ options as (
         o.value:label::varchar as option_label
     from fields_with_options f,
         lateral flatten(input => f.field_value_options) o
-),
-
--- the task's funnel step definitions: 9 stage steps and 2 call steps
-funnel_steps as (
-    select
-        funnel_step::varchar as funnel_step,
-        kpi_name::varchar as kpi_name,
-        source_type::varchar as source_type,
-        stage_id::integer as stage_id,
-        activity_type::varchar as activity_type,
-        sort_order::integer as sort_order
-    from (values
-        ('1',   'Lead Generation',            'stage',    1,    null, 1),
-        ('2',   'Qualified Lead',             'stage',    2,    null, 2),
-        ('2.1', 'Sales Call 1',               'activity', null, 'meeting', 3),
-        ('3',   'Needs Assessment',           'stage',    3,    null, 4),
-        ('3.1', 'Sales Call 2',               'activity', null, 'sc_2',    5),
-        ('4',   'Proposal/Quote Preparation', 'stage',    4,    null, 6),
-        ('5',   'Negotiation',                'stage',    5,    null, 7),
-        ('6',   'Closing',                    'stage',    6,    null, 8),
-        ('7',   'Implementation/Onboarding',  'stage',    7,    null, 9),
-        ('8',   'Follow-up/Customer Success', 'stage',    8,    null, 10),
-        ('9',   'Renewal/Expansion',          'stage',    9,    null, 11)
-    ) as t(funnel_step, kpi_name, source_type, stage_id, activity_type, sort_order)
 )
 
 -- CRM field options enriched with funnel step attributes for stages
 select
-    o.field_key,
-    o.field_name,
-    o.option_id,
-    o.option_label,
-    f.funnel_step,
-    f.kpi_name,
-    f.source_type,
+    field_key,
+    field_name,
+    option_id,
+    option_label,
+    case when field_key = 'stage_id'
+        then cast(option_id as varchar)
+    end as funnel_step,
+    -- option_label matches the task's step names (S1: stages.stage_name differs, not the field label)
+    case when field_key = 'stage_id'
+        then option_label
+    end as kpi_name,
+    case when field_key = 'stage_id'
+        then 'stage'
+    end as source_type,
     cast(null as varchar) as activity_type,
-    f.sort_order
-from options o
-left join funnel_steps f
-    on f.stage_id = o.option_id
-    and o.field_key = 'stage_id'
+    -- sort order interleaves 2 call steps: after stage 2 (Sales Call 1) and after stage 3 (Sales Call 2)
+    case
+        when field_key != 'stage_id' then null
+        when option_id <= 2 then option_id
+        when option_id = 3 then option_id + 1
+        else option_id + 2
+    end as sort_order
+from options
 
 union all
 
@@ -72,10 +58,12 @@ select
     cast(null as varchar) as field_name,
     cast(null as integer) as option_id,
     cast(null as varchar) as option_label,
-    f.funnel_step,
-    f.kpi_name,
-    f.source_type,
-    f.activity_type,
-    f.sort_order
-from funnel_steps f
-where f.source_type = 'activity'
+    funnel_step,
+    kpi_name,
+    source_type,
+    activity_type,
+    sort_order
+from (values
+    ('2.1', 'Sales Call 1', 'activity', 'meeting', 3),
+    ('3.1', 'Sales Call 2', 'activity', 'sc_2',    5)
+) as t(funnel_step, kpi_name, source_type, activity_type, sort_order)
