@@ -11,7 +11,6 @@ with report_totals as (
     inner join {{ ref('dim_funnel_step') }} s
         on s.funnel_step = r.funnel_step
     where s.source_type = 'stage'  -- stage steps only; calls are counted per month, not per deal
-        {% if var('step_1_date') == 'created' %}and s.stage_id <> 1{% endif %}
     group by r.funnel_step
 ),
 
@@ -26,7 +25,6 @@ entry_totals as (
     -- match the report's DUP-6 exclusion (filtered in int_pipedrive__deals)
     inner join {{ ref('int_pipedrive__deals') }} d
         on d.deal_id = e.deal_id
-    {% if var('step_1_date') == 'created' %}where s.stage_id <> 1{% endif %}
     group by s.funnel_step
 )
 

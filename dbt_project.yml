@@ -72,8 +72,6 @@ data_tests:
 #   test -> ENPAL_TEST.SRC, zero-copy clones made by `dbt run-operation refresh_src`
 #   prod -> ENPAL_RAW.PIPEDRIVE, read directly
 vars:
-  # Funnel rules (vault/project/model_plan.md). Open decisions set to Claude's recommendation:
-  step_1_date: stage_entry               # open: 'stage_entry' (first entry into stage 1) or 'created' (add_time)
   raw_location:
     test: { database: ENPAL_TEST, schema: SRC }
     prod: { database: ENPAL_RAW, schema: PIPEDRIVE }

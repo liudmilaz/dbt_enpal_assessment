@@ -34,7 +34,7 @@ models:
       - name: first_stage_id
         description: "Stage of the first recorded stage move: expected 1 (step 1 relies on it)."
       - name: first_stage_entered_at
-        description: "First entry into stage 1, the date of step 1 by default (var step_1_date)."
+        description: "First entry into stage 1, the date of step 1."
       - name: highest_stage_id
         description: "Furthest stage recorded; the backfill fills stages 1 to this one."
 

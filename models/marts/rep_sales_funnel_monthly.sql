@@ -2,13 +2,13 @@
 -- that month. Stage steps: distinct deals whose first entry into the stage (recorded or inferred, D1) falls in the
 -- month. Call steps 2.1 and 3.1: distinct deal ids with a done call of that type due in the month (A2: these ids are
 -- not the funnel deals). The report runs from the first to the last month with any step in the data; months
--- without deals show 0. Open decision with a default as var (vault/project/NOTES.md): step_1_date.
+-- without deals show 0. Step 1 is dated like every other stage: the first entry into stage 1.
 
+-- the 11 funnel steps, with the stage of each stage step
 with steps as (
     select
         funnel_step,
         kpi_name,
-        source_type,
         stage_id,
         sort_order
     from {{ ref('dim_funnel_step') }}
@@ -17,8 +17,7 @@ with steps as (
 -- deals (DUP-6 already excluded by int_pipedrive__deals)
 deals as (
     select
-        deal_id,
-        created_at
+        deal_id
     from {{ ref('int_pipedrive__deals') }}
 ),
 
@@ -31,17 +30,9 @@ stage_entries as (
     from {{ ref('int_pipedrive__deal_stage_entries_backfilled') }} e
     inner join deals d
         on d.deal_id = e.deal_id
-    {% if var('step_1_date') == 'created' %}
-    where e.stage_id <> 1  -- step 1 comes from the creation date below
-    union all
-    select
-        d.deal_id,
-        1 as stage_id,
-        date_trunc('month', d.created_at)::date as month
-    from deals d
-    {% endif %}
 ),
 
+-- deals per stage step and month
 stage_counts as (
     select
         s.funnel_step,
@@ -65,6 +56,7 @@ calls as (
     where is_done  -- held calls only, not planned ones
 ),
 
+-- deal ids per call step and month
 call_counts as (
     select
         funnel_step,
@@ -76,6 +68,7 @@ call_counts as (
         month
 ),
 
+-- stage and call steps together
 step_counts as (
     select
         funnel_step,
