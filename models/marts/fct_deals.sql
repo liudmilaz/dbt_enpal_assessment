@@ -2,14 +2,12 @@
 -- There is no won/lost status and no amount in the export: "closed" means the deal reached stage 6 (Closing),
 -- recorded or inferred. The lead month is the month of the first entry into stage 1 (the cohort).
 
--- the deals with their flags
 with deals as (
     select
         deal_id,
         created_at,
         first_stage_entered_at,
-        highest_stage_id,
-        is_duplicate_entry
+        highest_stage_id
     from {{ ref('int_pipedrive__deals') }}
 ),
 
@@ -33,8 +31,7 @@ select
     date_trunc('month', c.closing_entered_at)::date as closing_month,
     c.closing_entered_at is not null as is_closed,
     c.is_inferred,
-    datediff('day', d.first_stage_entered_at, c.closing_entered_at) as days_lead_to_closing,
-    d.is_duplicate_entry
+    datediff('day', d.first_stage_entered_at, c.closing_entered_at) as days_lead_to_closing
 from deals d
 left join closings c
     on c.deal_id = d.deal_id

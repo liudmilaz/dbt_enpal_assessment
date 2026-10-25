@@ -240,23 +240,16 @@ the Deals Overview dashboard.
 
 ## Implementation
 
-Move the exclusion from scattered Jinja conditionals in `rep_sales_funnel_monthly` into a clean
-intermediate model:
-
-1. **Create `int_pipedrive__funnel_deals`**: selects from `int_pipedrive__deals`, applies
-   `where not is_duplicate_entry`.
-2. **Simplify `rep_sales_funnel_monthly`**: replace the three `{% if var(...) %}` blocks with an
-   `inner join` to `int_pipedrive__funnel_deals` on `deal_id`.
-3. **`fct_deals` unchanged**: keeps all deals with the flag.
-4. **Raw-layer test unchanged**: `tests/data_quality/dup6_duplicate_entry_deals_past_closing.sql`
-   monitors the issue on the source.
+Filter DUP-6 deals directly in `int_pipedrive__deals` (`where last_lost_reason_id <> 5`).
+All downstream models — `fct_deals`, `rep_sales_funnel_monthly`, the backfill — see only
+real sales opportunities. The raw-layer test `tests/data_quality/dup6_duplicate_entry_deals_past_closing.sql`
+monitors the issue on the source.
 
 DAG after the change:
 
 ```
 stg_pipedrive__deal_changes
-  └─► int_pipedrive__deals
-        ├─► int_pipedrive__funnel_deals  (DUP-6 filter)
-        │     └─► rep_sales_funnel_monthly
-        └─► fct_deals                    (all deals, flag for dashboard)
+  └─► int_pipedrive__deals  (DUP-6 filtered out here)
+        ├─► rep_sales_funnel_monthly
+        └─► fct_deals
 ```

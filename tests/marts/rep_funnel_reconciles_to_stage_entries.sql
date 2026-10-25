@@ -23,9 +23,9 @@ entry_totals as (
     from {{ ref('int_pipedrive__deal_stage_entries_backfilled') }} e
     inner join {{ ref('dim_funnel_step') }} s
         on s.stage_id = e.stage_id
-    -- match the report's DUP-6 exclusion
-    inner join {{ ref('int_pipedrive__funnel_deals') }} f
-        on f.deal_id = e.deal_id
+    -- match the report's DUP-6 exclusion (filtered in int_pipedrive__deals)
+    inner join {{ ref('int_pipedrive__deals') }} d
+        on d.deal_id = e.deal_id
     where date_trunc('month', e.entered_at) between '{{ var("report_start_month") }}' and '{{ var("report_end_month") }}'
     group by s.funnel_step
 )

@@ -1,6 +1,6 @@
 -- One row per deal (DEAL and OWNER_ASSIGNMENT in the logical model): there is no deals table, so the deal is derived
--- from its change history. Known issues are handled upstream (D1/D2: backfill, DUP-3: staging dedup) or downstream
--- (DUP-6: funnel exclusion). D3 (two lifecycles) is handled by the first-entry logic in stage entries.
+-- from its change history. Known issues are handled upstream (D1/D2: backfill, DUP-3: staging dedup).
+-- DUP-6 (Duplicate Entry) deals are filtered out here; D3 (two lifecycles) is handled by first-entry logic.
 
 -- the typed change log
 with changes as (
@@ -52,8 +52,10 @@ select
     s.first_stage_entered_at,
     s.highest_stage_id,
     a.last_lost_reason_id,
-    a.last_lost_reason_at,
-    a.last_lost_reason_id = 5 as is_duplicate_entry  -- DUP-6: lost reason Duplicate Entry
+    a.last_lost_reason_at
 from deal_attributes a
 inner join stage_path s
     on s.deal_id = a.deal_id
+-- DUP-6: reps label accidental duplicates as "Duplicate Entry" (lost reason 5);
+-- these are not real sales opportunities and are excluded from the funnel
+where coalesce(a.last_lost_reason_id, 0) <> 5

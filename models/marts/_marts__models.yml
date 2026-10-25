@@ -26,7 +26,7 @@ models:
   - name: rep_sales_funnel_monthly
     description: >
       The task's report: one row per month and funnel step, from var report_start_month to var report_end_month,
-      zero-filled. Stage steps count distinct funnel-eligible deals (int_pipedrive__funnel_deals, DUP-6 excluded)
+      zero-filled. Stage steps count distinct deals (DUP-6 excluded by int_pipedrive__deals)
       whose first entry into the stage (recorded or inferred) falls in the month; steps 2.1 and 3.1 count distinct
       deal ids with a done call due in the month, which are not the funnel deals (A2)
       and are 0 for months after the activity export ends (X1).
@@ -142,5 +142,3 @@ models:
               arguments: { min_value: 0 }
       - name: highest_stage_id
         description: "Furthest stage reached."
-      - name: is_duplicate_entry
-        description: "DUP-6: lost reason Duplicate Entry; excluded from the funnel report."
