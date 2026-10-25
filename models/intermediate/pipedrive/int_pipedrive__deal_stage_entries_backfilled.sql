@@ -43,16 +43,16 @@ with_recorded as (
         and r.stage_id = e.stage_id
 ),
 
--- the earliest recorded entry of any higher stage: proves this stage was passed
+-- the next recorded entry of a higher stage: proves this stage was passed
 dated as (
     select
         deal_id,
         stage_id,
         recorded_at,
-        min(recorded_at) over (
+        first_value(recorded_at ignore nulls) over (
             partition by deal_id
-            order by stage_id desc
-            rows between unbounded preceding and 1 preceding
+            order by stage_id
+            rows between 1 following and unbounded following
         ) as next_recorded_at
     from with_recorded
 )
