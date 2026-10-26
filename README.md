@@ -9,7 +9,7 @@ The assignment ships a local Postgres in Docker. Enpal agreed that this solution
 | Step | Counted as | Total deals in the window |
 |---|---|---|
 | 1 to 9 (stages) | distinct deals whose **first entry** into the stage falls in the month; a skipped stage counts as reached (`is_inferred`) and is dated at the earliest entry of a higher stage | 1,618 / 1,614 / 1,582 / 1,512 / 1,367 / 1,150 / 877 / 586 / 274 |
-| 2.1 Sales Call 1, 3.1 Sales Call 2 | distinct deal ids with a **held** call of that type due in the month: marked done, or due before the export ended | 1,142 / 1,120 |
+| 2.1 Sales Call 1, 3.1 Sales Call 2 | distinct deal ids with a **done** call of that type due in the month | 566 / 558 |
 
 ## Data flow
 
@@ -46,7 +46,7 @@ ENPAL_ANALYTICS_PROD       same layers, target `prod`, built from main only, rea
 |---|---|---|
 | Skipped stages (84% of deals) | counted as reached, flagged `is_inferred`; for recorded entries only use `int_pipedrive__deal_stage_entries` | a deal in Negotiation has passed Qualified Lead; recorded-only would roughly halve the middle steps |
 | Step 1 date | first entry into stage 1, not the creation time | same rule as every other step; creation is a median 35 days earlier |
-| Calls 2.1 / 3.1 | held calls: marked done, or due before the export ended (the last change of the deal history) | a held call is the KPI; only about 50% of every type is marked done, although every call was due before the export ended: reps hold calls without marking them done (to confirm with Enpal) |
+| Calls 2.1 / 3.1 | done calls only; `is_due_before_export_end` in `int_pipedrive__sales_calls` flags the calls due before the export ended (the last change of the deal history) | a held call is the KPI; only about 50% of every type is marked done, although every call was due before the export ended. Counting those calls too would about double steps 2.1 and 3.1 (to confirm with Enpal) |
 | Calls vs deals | calls counted per month by their own `deal_id` | only 8 of 4,579 activities link to a deal in the history, so they cannot be attached to the funnel deals |
 | Two lifecycles in one deal (5 deals) | counted once per step, by the first entry | |
 | Repeated `activity_id` (11 ids) | `activity_id` is the key; the latest `due_to` per id is kept (4,579 to 4,568) | |
@@ -74,7 +74,7 @@ The issues found in the exploratory analysis that change a count or a name of `r
 | DUP-6 Duplicate Entry deals | Duplicates would be counted as real deals. | Dedup deals in staging: every deal with a Duplicate Entry lost reason is left out (`stg_pipedrive__deal_changes`). | `dup6_duplicate_entry_deals_past_closing` |
 | A1 One activity id, two activities | A call could be counted twice. | One row per activity id, the latest due date (`stg_pipedrive__activity`). | `a1_repeated_activity_id` |
 | A2 Activities not linked to the deal history | Calls cannot be tied to the funnel deals. | Steps 2.1 and 3.1 count the calls' own deal ids per month, not joined to the funnel deals (`int_pipedrive__sales_calls`). | `a2_activity_deal_not_in_deal_changes` |
-| A4 Past activities never marked done | Steps 2.1 and 3.1 depend on the done flag. | A call counts as held when it is marked done or was due before the export ended (`is_due_before_export_end` in `int_pipedrive__sales_calls`). | `a4_past_activities_not_done` |
+| A4 Past activities never marked done | Steps 2.1 and 3.1 depend on the done flag. | Done calls only; the calls due before the export ended are flagged (`is_due_before_export_end`) to count them if the business confirms. | `a4_past_activities_not_done` |
 | X1 Exports end on different dates | Calls end months before the deal history. | The report runs to the last month with data; steps 2.1 and 3.1 are 0 after the activity export ends. | `x1_export_end_dates_apart` |
 | S1 Stage spelled two ways | The step names would differ from the task. | Step names from the Stage field labels (`int_pipedrive__funnel_steps`). | `s1_stage_name_differs_from_field_label` |
 

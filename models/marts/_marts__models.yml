@@ -27,7 +27,7 @@ models:
       The task's report: one row per month and funnel step, from the first to the last month with any step in the data,
       zero-filled. Stage steps count distinct deals (DUP-6 excluded in staging)
       whose first entry into the stage (recorded or inferred) falls in the month; steps 2.1 and 3.1 count distinct
-      deal ids with a held call due in the month (marked done, or due before the export ended, A4), which are not the funnel deals (A2)
+      deal ids with a done call due in the month, which are not the funnel deals (A2)
       and are 0 for months after the activity export ends (X1).
       Built for self-service reporting by month. Quarters, weeks or years belong to the semantic layer or BI tool,
       on the event grain: steps 2.1 and 3.1 are distinct deal ids per month, so summing months double-counts a deal

@@ -1,6 +1,7 @@
 -- One row per sales call that is a funnel step (ACTIVITY in the logical model, the two call types only):
 -- Sales Call 1 (type meeting, step 2.1) and Sales Call 2 (type sc_2, step 3.1). Done and not done are both kept;
--- the funnel report counts a call as held when it is marked done or was due before the export ended (A4).
+-- the funnel report counts done calls only. is_due_before_export_end flags the calls that were due before the export
+-- ended but are not marked done (A4), to count them as held if Enpal confirms (question 5).
 -- deal_id matches the deal history for only 8 activities (A2).
 
 -- the funnel steps that come from activities
