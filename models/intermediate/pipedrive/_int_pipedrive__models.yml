@@ -56,7 +56,7 @@ models:
     description: >
       One row per funnel step of the task: steps 1 to 9 are the pipeline stages, named by the Stage field labels;
       steps 2.1 (Sales Call 1, type meeting) and 3.1 (Sales Call 2, type sc_2) are the activity types named Sales Call;
-      Sales Call n follows stage n + 1, as the task defines (no data links a call type to a stage, A2). The step
+      their step numbers are the task's (no data links a call type to a stage, A2). The step
       number sets the order. The tests pin the task's 11 steps and names, so a changed or missing CRM label fails.
     config:
       meta: { grain: funnel_step, primary_key: [funnel_step] }
