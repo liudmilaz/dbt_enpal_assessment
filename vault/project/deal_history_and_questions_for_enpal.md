@@ -254,3 +254,5 @@ select
 from per_deal;
 -- 1081 | 683 | 63.2
 ```
+
+All questions on the assumptions of the implementation, for the data team and the stakeholders: [[questions_for_enpal]].

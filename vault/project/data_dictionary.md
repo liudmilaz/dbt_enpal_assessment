@@ -6,7 +6,7 @@ tags:
 
 # Data dictionary
 
-Every field of the six raw tables of the Pipedrive CRM export: what it means for Enpal's sales process, the Pipedrive documentation that describes it, and the caveats found in this export. The reading of fields in Enpal's sale is an **interpretation, to confirm with Enpal**. Company and funnel: [[business_context]]; entities and relationships: [[logical_model]].
+Every field of the six raw tables of the Pipedrive CRM export: what it means for Enpal's sales process, the Pipedrive documentation that describes it, and the caveats found in this export. The reading of fields in Enpal's sale is an **interpretation, to confirm with Enpal**. Company and funnel: [[business_context --keep]]; entities and relationships: [[logical_model]].
 
 Documentation used (Pipedrive): [Deals API](https://developers.pipedrive.com/docs/api/v1/Deals), [Activities API](https://developers.pipedrive.com/docs/api/v1/Activities), [Activity types API](https://developers.pipedrive.com/docs/api/v1/ActivityTypes), [Stages API](https://developers.pipedrive.com/docs/api/v1/Stages), [Users API](https://developers.pipedrive.com/docs/api/v1/Users), [Deal fields API](https://developers.pipedrive.com/docs/api/v1/DealFields), support articles [Lost reasons](https://support.pipedrive.com/en/article/lost-reasons), [Customize pipeline stages](https://support.pipedrive.com/en/article/how-can-i-customize-my-pipeline-stages) and [How data is organized](https://support.pipedrive.com/en/article/how-is-pipedrive-data-organized). Where the official page does not define a field, the table says so; some response fields can only be confirmed from third-party references (marked unofficial).
 
@@ -28,9 +28,9 @@ The deal's history as the CRM records it (the changelog).
 | Column | Business meaning | Documentation | Caveats in this export |
 |---|---|---|---|
 | `deal_id` | The sales opportunity the change belongs to. | [Deals API: changelog](https://developers.pipedrive.com/docs/api/v1/Deals#getDealChangelog): documented as the path parameter | 5 deals hold two lifecycles (two creations, two lost reasons), consistent with a duplicate lead merged into one deal (D3). |
-| `change_time` | When the change was made in the CRM. | changelog `time`: not defined on the official page | Every change has the deal's creation time of day: the dates are creation + whole days, so the timing looks generated (D5). |
+| `change_time` | When the change was made in the CRM. | changelog `time`: not defined on the official page | Every change has the deal's creation time of day: use the date of a change, not its time (D5). |
 | `changed_field_key` | Which property of the deal changed (the four keys below). | changelog `field_key`: response fields not defined; unofficial: [list updates about deal field values](https://developers.qodex.ai/pipedrive-api-collection/pipedrive-api-v1-2/deals-6/list-updates-about-deal-field-values-1) | Only four of the many deal fields are in the export. |
-| `new_value` | The value after the change; its meaning depends on the key. | only third-party references list `new_value` | No old value, no author of the change; four types in one text column (D6). |
+| `new_value` | The value after the change; its meaning depends on the key. | only third-party references list `new_value` | No old value, no author of the change; four types in one text column; typed per key in staging, the format is tested there. |
 
 The four kinds of change (`changed_field_key`):
 

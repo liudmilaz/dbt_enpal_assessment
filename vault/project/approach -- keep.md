@@ -10,7 +10,7 @@ In a real project I would settle these before building, in this order:
 2. **Ask for a call or meeting with the stakeholders**: the KPI owner, sales ops (data entry) and the CRM admin. I bring each finding with its evidence and a proposed default, and we agree on the rule.
 3. **Only then implement the rule** and document it as a decision.
 
-Here the stakeholders were not available, so each finding is handled with a documented default (Found / Improve / Handled in the test metadata, [[cleansing_proposals]]), and the open questions for Enpal are in [[deal_history_and_questions_for_enpal]] and [[cleansing_proposals]]. The findings of the exploratory analysis should be read as assumptions to confirm.
+Here the stakeholders were not available, so each finding is handled with a documented default (Found / Handled in the test metadata, [[cleansing_proposals]]), and every assumption is listed as a question, for the data team and for the stakeholders, in [[questions_for_enpal]]. The findings of the exploratory analysis should be read as assumptions to confirm.
 
 ## Why compare with the UI
 
@@ -56,6 +56,41 @@ Limits to know:
 
 - **dbt**: the dbt Labs agent skills for Claude Code (analytics engineering, running dbt commands, documentation, Mermaid DAG) and a dimensional-modeling skill: they set the layer conventions, the test policy and the habit of checking every model with `dbt show` before and after a change.
 - **Snowflake**: the Snowflake CLI (`snow`) with key-pair authentication for every ad-hoc query and the admin and load scripts; a service user with its own role, read-only on raw; an X-Small warehouse that suspends after 60 seconds.
+
+### Data catalog (dbt docs)
+
+A data catalog is the shared reference of what the data means: every source, model and column with its description, the keys and tests, and the lineage from the raw tables to the report. It lets an analyst or a stakeholder find the right table and read its definition without asking the data team, shows the impact of a change before it is made (which models and reports depend on a column), and is the context an AI analytics tool reads. Here it is dbt's own catalog, built from the descriptions and `meta` in the YAML and the column types in Snowflake:
+
+```bash
+source ~/.snowflake/enpal.env              # Snowflake account, user and key path
+source ~/.venvs/enpal_sf/bin/activate      # dbt venv
+export DBT_PROFILES_DIR=.                  # profiles.yml in the repo root
+dbt docs generate                          # target/index.html, manifest.json, catalog.json
+dbt docs serve --port 8082                 # http://localhost:8082 (8081 is the Elementary report)
+```
+
+Locally it is served on localhost only; in production the generated site would be published (dbt Cloud, a static bucket, or a catalog tool that reads the dbt artifacts).
+
+**Lineage on localhost**, from the raw tables to the report:
+
+```bash
+dbt docs serve --port 8082                                    # after dbt docs generate: open the lineage graph (button at the bottom right)
+dbt ls --select +rep_sales_funnel_monthly --resource-type model --resource-type source   # the same lineage as a list in the terminal
+```
+
+The Elementary report (`bash scripts/dq_report.sh`, http://localhost:8081) also has a Lineage page, with the test results on each node.
+
+**Suggestion for production: Snowflake Horizon.** dbt's lineage ends at the dbt models. Snowflake Horizon (the governance and catalog features of Snowflake) records lineage inside the account, from the raw tables through the dbt views and tables to the objects built on them, and shows it in Snowsight (Lineage tab of a table). With the report fed into a Snowflake semantic view for the BI layer, one lineage would cover the raw data, the models and the metrics. To confirm with the data team: the Snowflake edition (lineage needs Enterprise or higher) and how far the lineage reaches into semantic views and the BI tool.
+
+### Data quality monitoring (Elementary)
+
+The quality of this data product depends on the quality of the CRM data, and the fixes depend on the people who enter it. The data quality tests therefore run in Elementary (`bash scripts/dq_report.sh`): every issue found in the exploratory analysis fails with its affected raw rows, which is the basis for the discussion with the stakeholders (sales ops, CRM admin, KPI owner).
+
+For ad hoc tracking between the scheduled runs, Claude can chart the quality directly from the same tests: it runs the query of an issue (see [[data_quality_issues]]) and draws, for example, the affected rows per month or per stage, which is quick to share in a stakeholder conversation.
+
+The tools are only part of it: a proper rollout of the data quality monitoring needs team effort and collaboration. The data team owns the tests and the pipeline, the CRM admin and sales ops own the fixes at the source, the KPI owner decides the rules (deduplication, adjustment, calculation), and together they agree who is alerted, how often the issues are reviewed and when an issue counts as solved.
+
+**Question for Enpal's data team** (T14 in [[questions_for_enpal]]): do you already use Elementary (or another tool) for data quality checks, and do you run a deployed data catalog? In my experience a deployed catalog is often missing; Elementary, or an equivalent, is needed here in any case, because the report is only as good as the CRM data and the issues have to be worked through with the stakeholders.
 
 ### Working method
 
