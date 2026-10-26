@@ -297,7 +297,7 @@ order by
 
 **Business case (assumption):** Data entry behaviour: with a high workload, reps hold the call but do not mark it as done.
 
-**Cleansing / transformation:** Count a call as held when it is marked done or was due before the export ended (`is_due_before_export_end` in `int_pipedrive__sales_calls`).
+**Cleansing / transformation:** Count done calls only; flag the calls due before the export ended (`is_due_before_export_end` in `int_pipedrive__sales_calls`) to count them if the business confirms.
 
 ## T1: Inactive activity type in use
 

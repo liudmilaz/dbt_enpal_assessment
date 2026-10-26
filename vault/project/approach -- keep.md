@@ -2,7 +2,7 @@
 
 ## The findings are assumptions
 
-Almost every cleansing proposal in this project is an assumption, not a decision: how to deduplicate repeated activity ids (A1), which lifecycle of a merged deal counts (D3), whether Duplicate Entry deals leave the funnel (DUP-6), that a skipped stage counts as reached (D1, D2), which date starts step 1, and that a call due before the export ended counts as held even when it is not marked done. The exploratory analysis shows *what* the data looks like; it cannot show *why*, and the why decides the right deduplication, adjustment or calculation.
+Almost every cleansing proposal in this project is an assumption, not a decision: how to deduplicate repeated activity ids (A1), which lifecycle of a merged deal counts (D3), whether Duplicate Entry deals leave the funnel (DUP-6), that a skipped stage counts as reached (D1, D2), which date starts step 1, and that only done calls count. The exploratory analysis shows *what* the data looks like; it cannot show *why*, and the why decides the right deduplication, adjustment or calculation.
 
 In a real project I would settle these before building, in this order:
 
