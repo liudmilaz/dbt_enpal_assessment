@@ -46,7 +46,7 @@ The evidence behind each question is in [[data_quality_issues]] (query per issue
 | T14 | Known data quality issues fail in Elementary and stay out of `dbt build` (default selector) | Do you use Elementary or another tool for data quality, and a deployed data catalog? Who receives the alerts? |
 | T15 | Generic tests on keys plus one custom test per known issue | What is the team's test policy (severities, which layers, CI)? |
 | T16 | dbt runs locally; prod from `main` only | How do dbt jobs run (dbt Cloud, Airflow, GitHub Actions) and how are deployments approved? |
-| T17 | The report is monthly; coarser grains in a semantic layer | Which semantic layer and BI tool are used (Snowflake semantic views, Cortex Analyst, Looker, Lightdash)? Does lineage (Snowflake Horizon) reach them? |
+| T17 | The report is monthly; coarser grains in a semantic layer | Which semantic layer and BI tool are used (Snowflake semantic views, Cortex Analyst, Tableau, Looker or another)? Does lineage (Snowflake Horizon) reach them? |
 | T18 | Snowflake features such as lineage are available | Which Snowflake edition and account setup (roles, warehouses, cost limits) does the team use? |
 
 ## 2. Stakeholders (regular meetings)

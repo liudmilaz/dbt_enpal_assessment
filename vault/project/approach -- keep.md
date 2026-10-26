@@ -92,6 +92,10 @@ The tools are only part of it: a proper rollout of the data quality monitoring n
 
 **Question for Enpal's data team** (T14 in [[questions_for_enpal]]): do you already use Elementary (or another tool) for data quality checks, and do you run a deployed data catalog? In my experience a deployed catalog is often missing; Elementary, or an equivalent, is needed here in any case, because the report is only as good as the CRM data and the issues have to be worked through with the stakeholders.
 
+### Reporting for stakeholders (BI tool)
+
+The report is a table for self-service reporting; stable and scalable reporting for the stakeholders needs the BI tool that already exists at Enpal (Tableau, Lightdash or any other) on top of `rep_sales_funnel_monthly`, ideally through a semantic layer (T17 in [[questions_for_enpal]]). No BI tool is part of this solution. Instead, the exploratory analysis is shown as dashboards built with Claude charts: [Pipedrive funnel EDA](https://claude.ai/artifact/TFJEc4EbMPTMELGNdeFpvJ).
+
 ### Working method
 
 The project follows the method in this vault: exploratory analysis per raw table → findings and data quality list ([[findings]]) → assumptions and questions for the stakeholders ([[deal_history_and_questions_for_enpal]], [[cleansing_proposals]]) → logical model ([[logical_model]]) → models and tests. The general version of the method is the skill `data-project-with-claude-code` (skills repo, PR #7).
