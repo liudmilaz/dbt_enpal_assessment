@@ -24,7 +24,7 @@ models:
         grain: "deal_change_key (= deal_id, changed_field_key, change_time)"
         primary_key: [deal_change_key]
         logical_entity: DEAL_EVENT
-        cleaning: "new_value split into one typed column per key (D6)."
+        cleaning: "new_value split into one typed column per key (D6). Duplicate Entry deals (lost reason 5, DUP-6) are left out with all their changes."
         caveats:
           - "D5: change times are generated (creation clock time + whole days); use dates, not durations."
           - "D3: a deal_id can hold two lifecycles, consistent with a duplicate lead merged into one deal."

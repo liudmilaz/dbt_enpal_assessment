@@ -4,24 +4,13 @@ version: 2
 # Tests at error, tag dq_intermediate (dbt_project.yml).
 
 models:
-  - name: int_pipedrive__deals
-    description: >
-      One row per funnel deal, from the change history (there is no deals table). DUP-6 deals (any lost reason
-      Duplicate Entry) are left out. D3 (two lifecycles) is handled by first-entry logic in the stage entries.
-    config:
-      meta: { grain: deal_id, primary_key: [deal_id] }
-    columns:
-      - name: deal_id
-        description: "The sales opportunity; the deal's id in the CRM, taken from its change history."
-        data_tests: [unique, not_null]
-
   - name: int_pipedrive__deal_stage_entries
-    description: "One row per funnel deal and recorded stage, dated by the first entry: a re-entry of a stage already entered counts once. Only the deals of int_pipedrive__deals: Duplicate Entry deals (DUP-6) are left out here."
+    description: "One row per funnel deal and recorded stage, dated by the first entry: a re-entry of a stage already entered counts once. Duplicate Entry deals (DUP-6) are already left out in staging."
     config:
       meta: { grain: "deal_id, stage_id", primary_key: [deal_id, stage_id] }
     columns:
       - name: deal_id
-        description: "The funnel deal; Duplicate Entry deals (DUP-6) are already left out."
+        description: "The funnel deal; Duplicate Entry deals (DUP-6) are left out in staging."
         data_tests: [not_null]
       - name: stage_id
         description: "The pipeline stage the deal entered, 1 (Lead Generation) to 9 (Renewal/Expansion)."
@@ -41,7 +30,7 @@ models:
           arguments: { combination_of_columns: [deal_id, stage_id] }
     columns:
       - name: deal_id
-        description: "The funnel deal; Duplicate Entry deals (DUP-6) are already left out."
+        description: "The funnel deal; Duplicate Entry deals (DUP-6) are left out in staging."
         data_tests: [not_null]
       - name: stage_id
         description: "The pipeline stage the deal reached, recorded or inferred: 1 (Lead Generation) to 9 (Renewal/Expansion)."

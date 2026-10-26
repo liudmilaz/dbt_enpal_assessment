@@ -17,7 +17,7 @@ The assignment ships a local Postgres in Docker. Enpal agreed that this solution
 ENPAL_RAW.PIPEDRIVE        6 CSVs, loaded once (scripts/snowflake_load.sql); dbt can only read it
   -> ENPAL_TEST.SRC        zero-copy clones (dbt run-operation refresh_src) - default target `test`
   -> STAGING               stg_pipedrive__*  one view per raw table: rename, cast, deduplicate
-  -> INTERMEDIATE          int_pipedrive__deals, __deal_stage_entries(_backfilled), __funnel_steps, __sales_calls
+  -> INTERMEDIATE          int_pipedrive__deal_stage_entries(_backfilled), __funnel_steps, __sales_calls
   -> MARTS                 dim_funnel_step, rep_sales_funnel_monthly
 ENPAL_ANALYTICS_PROD       same layers, target `prod`, built from main only, reads ENPAL_RAW directly
 ```
