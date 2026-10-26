@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pipedrive Data Quality</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+  /* layout: one column, tabs per raw table, a chart card then a details card */
+  :root {
+    --bg: #f7f8f9; --panel: #ffffff; --fg: #1d2329; --muted: #5d6873; --line: #dde2e7;
+    --accent: #2f6db5; --bar: #b8c2cc; --bad: #c2412d;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14181c; --panel: #1c2227; --fg: #e6eaee; --muted: #9aa5b0; --line: #2f373f; --accent: #7fb0ea; --bar: #4a5560; --bad: #ef7f6c; color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 var(--sans); }
+  .dq { max-width: 1200px; margin: 0 auto; padding: 24px max(16px, 3vw); display: grid; gap: 16px; }
+  h1 { font-size: 24px; font-weight: 500; margin: 0; }
+  .lead { margin: 4px 0 0; color: var(--muted); max-width: 75ch; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); }
+  .tab { appearance: none; background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 12px; font: 13px var(--mono); color: var(--muted); cursor: pointer; }
+  .tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--fg); }
+  .tab:focus-visible, .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 10px; min-width: 0; }
+  h2 { font-size: 16px; font-weight: 500; margin: 0; }
+  .note { margin: 0; color: var(--muted); font-size: 12px; }
+  .filter { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .filter-label { font-size: 12px; color: var(--muted); margin-right: 4px; }
+  .chip { appearance: none; font: 12px var(--sans); padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); cursor: pointer; }
+  .chip[aria-pressed="true"] { color: var(--fg); border-color: var(--fg); }
+  .chart { position: relative; min-height: 80px; }
+  .chart svg { display: block; overflow: visible; font-family: var(--sans); }
+  .bar-row { cursor: pointer; }
+  .bar-row:focus-visible { outline: none; }
+  .bar-row:focus-visible .hit { stroke: var(--accent); }
+  .tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 12px rgb(0 0 0 / .12); padding: 4px 8px; font-size: 12px; white-space: nowrap; opacity: 0; }
+  .tip span { display: block; color: var(--muted); }
+  .empty { margin: 0; color: var(--muted); }
+  details.card > summary { cursor: pointer; font-size: 16px; font-weight: 500; }
+  .meta { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); }
+  .meta h3 { margin: 0 0 2px; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .meta p { margin: 0; }
+  .sql summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+  .sql pre { margin: 6px 0 0; padding: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; font: 12px/1.5 var(--mono); }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+  .search { font: inherit; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); width: min(100%, 18rem); }
+  .count { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .table-box { max-height: 28rem; overflow: auto; border: 1px solid var(--line); border-radius: 6px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+  th { position: sticky; top: 0; background: var(--panel); text-align: left; font: 600 12px var(--mono); padding: 4px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 3px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  footer { color: var(--muted); font-size: 12px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="dq">
+  <header>
+    <h1>Pipedrive data quality</h1>
+    <p class="lead">The data quality issues found in the exploratory analysis, one tab per raw table, from the latest Elementary run. Pick the tests to compare, then click a bar to open the affected raw rows with what was found, what should improve at the source and how the pipeline handles it.</p>
+  </header>
+  <nav class="tabs" role="tablist" aria-label="Raw tables" id="tabs"></nav>
+  <section class="card">
+    <h2>Affected raw rows per issue</h2>
+    <p class="note" id="chart-note">Each bar is one known-issue test: the raw rows it returns, at the table's own grain. Click a bar for the rows.</p>
+    <div class="filter" id="filter" aria-label="Tests"></div>
+    <div class="chart" id="chart"></div>
+  </section>
+  <details class="card" id="details" open hidden>
+    <summary id="details-title"></summary>
+    <div class="meta">
+      <div><h3>Found</h3><p id="d-found"></p></div>
+      <div><h3>Improve at the source</h3><p id="d-improve"></p></div>
+      <div><h3>Handled in the pipeline</h3><p id="d-handled"></p></div>
+    </div>
+    <details class="sql"><summary>Query behind it (compiled test)</summary><pre id="d-sql"></pre></details>
+    <div class="tools">
+      <input class="search" id="search" type="search" placeholder="Search the rows" aria-label="Search the rows">
+      <span class="count" id="row-count"></span>
+    </div>
+    <div class="table-box"><table id="rows"><thead></thead><tbody></tbody></table></div>
+  </details>
+  <footer id="footer"></footer>
+</div>
+<script>
+  const DATA = /*__DATA__*/null;
+  const fmt = d3.format(',');
+  const $ = (id) => document.getElementById(id);
+  const state = { tab: DATA.tabs[0], off: {}, picked: {}, search: '' };
+  if (DATA.tabs.includes(location.hash.slice(1))) state.tab = location.hash.slice(1);
+
+  $('tabs').replaceChildren(...DATA.tabs.map((t) => {
+    const b = document.createElement('button');
+    b.className = 'tab'; b.role = 'tab'; b.id = 'tab-' + t; b.dataset.tab = t; b.textContent = t;
+    b.addEventListener('click', () => { state.tab = t; state.search = ''; $('search').value = ''; history.replaceState(null, '', '#' + t); draw(); });
+    return b;
+  }));
+  $('search').addEventListener('input', () => { state.search = $('search').value.trim().toLowerCase(); drawRows(); });
+  const last = d3.max(DATA.issues, (i) => i.detected_at);
+  $('footer').textContent = `Target ${DATA.target}; latest Elementary run ${last ?? 'none'}. Regenerate: bash scripts/dq_report.sh, or python3 scripts/dq_dashboard.py after the tests.`;
+
+  window.addEventListener('resize', () => draw());
+
+  function draw() {
+    document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === state.tab)));
+    const issues = DATA.issues.filter((i) => i.raw_table === state.tab);
+    const chart = $('chart'), filter = $('filter');
+    if (!issues.length) {
+      filter.replaceChildren();
+      const p = document.createElement('p'); p.className = 'empty';
+      p.textContent = 'No known-issue test on this table’s own grain.';
+      chart.replaceChildren(p);
+      $('details').hidden = true;
+      return;
+    }
+    const off = state.off[state.tab] || (state.off[state.tab] = new Set());
+    const label = document.createElement('span'); label.className = 'filter-label'; label.textContent = 'Tests';
+    filter.replaceChildren(label, ...issues.map((i) => {
+      const b = document.createElement('button');
+      b.className = 'chip'; b.type = 'button'; b.textContent = i.issue; b.title = i.test;
+      b.setAttribute('aria-pressed', String(!off.has(i.issue)));
+      b.addEventListener('click', () => { off.has(i.issue) ? off.delete(i.issue) : off.add(i.issue); draw(); });
+      return b;
+    }));
+    const shown = issues.filter((i) => !off.has(i.issue));
+    if (!shown.some((i) => i.issue === state.picked[state.tab])) state.picked[state.tab] = shown.length ? shown.slice().sort((a, b) => b.failures - a.failures)[0].issue : null;
+    drawChart(chart, shown);
+    drawDetails();
+  }
+
+  function drawChart(el, rows) {
+    el.replaceChildren();
+    if (!rows.length) { const p = document.createElement('p'); p.className = 'empty'; p.textContent = 'No test selected. Pick one or more tests above.'; el.append(p); return; }
+    const width = Math.max(260, el.clientWidth || 600);
+    const rowH = 34, gap = 10;
+    const height = rows.length * (rowH + gap);
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${width} ${height}`).attr('role', 'img').attr('aria-label', 'Affected raw rows per issue');
+    const labels = rows.map((d) => `${d.issue}  ${d.test}`);
+    const probe = svg.append('text').attr('font-size', 12);
+    const textW = (t) => { probe.text(t); return probe.node().getComputedTextLength(); };
+    const narrow = width < 560;
+    const left = narrow ? 0 : Math.min(width * 0.5, d3.max(labels, textW) + 16);
+    const valueW = d3.max(rows, (d) => textW(fmt(d.failures))) + 10;
+    probe.remove();
+    const x = d3.scaleLinear([0, d3.max(rows, (d) => d.failures) || 1], [0, Math.max(40, width - left - valueW)]);
+    const tip = d3.select(el).append('div').attr('class', 'tip');
+    const picked = state.picked[state.tab];
+    const g = svg.selectAll('g.bar-row').data(rows).join('g')
+      .attr('class', 'bar-row').attr('tabindex', 0).attr('role', 'button')
+      .attr('aria-label', (d) => `${d.issue} ${d.test}: ${fmt(d.failures)} rows. Show rows.`)
+      .attr('transform', (d, i) => `translate(0,${i * (rowH + gap)})`)
+      .on('click', (e, d) => pick(d.issue))
+      .on('keydown', (e, d) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(d.issue); } })
+      .on('mousemove', (e, d) => {
+        const [mx, my] = d3.pointer(e, el);
+        tip.style('opacity', 1).html('');
+        tip.append('span').text(`${d.issue} · ${d.test}`);
+        tip.append('div').text(`${fmt(d.failures)} raw rows`);
+        const tw = tip.node().offsetWidth;
+        tip.style('left', `${Math.min(Math.max(0, mx + 12), el.clientWidth - tw)}px`).style('top', `${my + 14}px`);
+      })
+      .on('mouseleave', () => tip.style('opacity', 0));
+    g.append('rect').attr('class', 'hit').attr('y', -2).attr('width', width).attr('height', rowH + 4).attr('fill', 'transparent').attr('rx', 4);
+    const barY = narrow ? 18 : 6, barH = narrow ? 14 : 22;
+    g.append('text').attr('x', narrow ? 0 : left - 12).attr('y', narrow ? 12 : rowH / 2 + 4)
+      .attr('text-anchor', narrow ? 'start' : 'end').attr('font-size', 12).attr('fill', 'var(--fg)')
+      .text((d, i) => labels[i]);
+    g.append('rect').attr('x', left).attr('y', barY).attr('height', barH).attr('rx', 4)
+      .attr('width', (d) => Math.max(2, x(d.failures)))
+      .attr('fill', (d) => d.issue === picked ? 'var(--accent)' : 'var(--bar)');
+    g.append('text').attr('x', (d) => left + Math.max(2, x(d.failures)) + 6).attr('y', barY + barH / 2 + 4)
+      .attr('font-size', 12).attr('fill', 'var(--muted)').text((d) => fmt(d.failures));
+  }
+
+  function pick(issue) { state.picked[state.tab] = issue; state.search = ''; $('search').value = ''; draw(); }
+
+  function current() { return DATA.issues.find((i) => i.issue === state.picked[state.tab] && i.raw_table === state.tab); }
+
+  function drawDetails() {
+    const issue = current();
+    $('details').hidden = !issue;
+    if (!issue) return;
+    $('details-title').textContent = `${issue.issue} · ${issue.test}`;
+    $('d-found').textContent = issue.found;
+    $('d-improve').textContent = issue.improve;
+    $('d-handled').textContent = issue.handled;
+    $('d-sql').textContent = issue.sql;
+    drawRows();
+  }
+
+  function drawRows() {
+    const issue = current();
+    if (!issue) return;
+    const rows = issue.rows;
+    const cols = rows.length ? Object.keys(rows[0]) : [];
+    const hr = document.createElement('tr');
+    cols.forEach((c) => { const th = document.createElement('th'); th.textContent = c; hr.append(th); });
+    $('rows').tHead.replaceChildren(hr);
+    const q = state.search;
+    const hits = q ? rows.filter((r) => cols.some((c) => String(r[c] ?? '').toLowerCase().includes(q))) : rows;
+    const frag = document.createDocumentFragment();
+    hits.forEach((r) => {
+      const tr = document.createElement('tr');
+      cols.forEach((c) => { const td = document.createElement('td'); td.textContent = r[c] ?? ''; tr.append(td); });
+      frag.append(tr);
+    });
+    $('rows').tBodies[0].replaceChildren(frag);
+    $('row-count').textContent = q ? `${fmt(hits.length)} of ${fmt(rows.length)} rows` : `${fmt(rows.length)} rows`;
+  }
+
+  draw();
+</script>
+</body>
+</html>

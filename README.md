@@ -35,7 +35,10 @@ ENPAL_ANALYTICS_PROD       same layers, target `prod`, built from main only, rea
    dbt build                       # target test: models and all tests
    ```
    Production: `dbt build --target prod` (from `main` only).
-5. **Data quality report** (optional): `pip install -r requirements-elementary.txt` in a separate venv, then `bash scripts/dq_report.sh` serves the Elementary report on http://localhost:8081.
+5. **Data quality report and dashboard** (optional): `pip install -r requirements-elementary.txt` in a separate venv, and a Snowflake CLI connection to the account (`snow connection add`, key pair as in `profiles.yml`; name `enpal`, or set `SNOW_CONNECTION`). Then `bash scripts/dq_report.sh` runs every test and serves on http://localhost:8081:
+   - the Elementary report: `elementary_report_test.html`;
+   - the data quality dashboard: `dq_dashboard_test.html`, one tab per raw table with a chart of the affected raw rows per issue, a filter on the test names, and the rows of the clicked issue with what was found, what should improve at the source, how the pipeline handles it and the query behind it.
+   After a test run alone, `python3 scripts/dq_dashboard.py --target test` rebuilds the dashboard from the latest Elementary results.
 
 ## Decisions and assumptions
 
@@ -76,7 +79,7 @@ Generic tests, and custom tests that show the data quality issues found in the e
 | `tests/data_quality/` | custom tests: the known data quality issues, and the lost-reason key of the raw layer |
 | `selectors.yml` | `pipeline` (default, without the known issues), `dq_report` (every test) |
 | `analyses/` | exploratory analysis per raw table, SQL with results (kept local until reviewed; added before the final submission) |
-| `scripts/` | Snowflake admin and load scripts, data quality report |
+| `scripts/` | Snowflake admin and load scripts, data quality report (`dq_report.sh`) and dashboard (`dq_dashboard.py` with its page template) |
 
 ---
 

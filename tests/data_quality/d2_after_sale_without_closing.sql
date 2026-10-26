@@ -1,7 +1,7 @@
 {{ config(
     severity='error',
     tags=['dq_known_issue', 'dq_process'],
-    meta={'issue': 'D2', 'owner': 'sales_ops', 'quality_dimension': 'completeness', 'description': 'Found (EDA 00 D2): deals reach an after-sale stage (7 to 9) without a recorded Closing (6). Improve (sales ops): record the Closing. Handled: the backfill counts them under Closing; fct_deals.is_inferred marks the inferred Closing.'}
+    meta={'issue': 'D2', 'owner': 'sales_ops', 'quality_dimension': 'completeness', 'description': 'Found (EDA 00 D2): deals reach an after-sale stage (7 to 9) without a recorded Closing (6). Improve (sales ops): record the Closing. Handled: the backfill counts them under Closing, flagged is_inferred in int_pipedrive__deal_stage_entries_backfilled.'}
 ) }}
 
 -- stage moves only, with the stage id typed after the filter
