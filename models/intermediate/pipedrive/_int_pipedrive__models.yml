@@ -110,5 +110,10 @@ models:
       - name: activity_type
         description: "The call type: meeting (Sales Call 1) or sc_2 (Sales Call 2)."
       - name: is_done
-        description: "Whether the call was marked done, i.e. held; the funnel report counts done calls only."
+        description: "Whether the rep marked the call done. The funnel report counts a call when it is done or was due before the export ended (A4)."
+        data_tests: [not_null]
+      - name: is_due_before_export_end
+        description: >
+          Whether the call was due before the export ended (the last change of the deal history). Reps hold calls
+          without marking them done (A4), so a call that was due before the export ended counts as held in the funnel report.
         data_tests: [not_null]

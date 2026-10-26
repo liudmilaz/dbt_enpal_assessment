@@ -178,7 +178,7 @@ sources:
               - not_null:
                   config: { tags: [dq_check], meta: { owner: data_team } }
           - name: done
-            description: "Whether the activity was marked done. Known pattern A4: part of the past activities is never marked done; counting done calls only lowers steps 2.1 and 3.1."
+            description: "Whether the activity was marked done. Known pattern A4: part of the past activities is never marked done; steps 2.1 and 3.1 therefore also count calls due before the export ended."
             data_type: BOOLEAN
             config:
               meta: { issue: A4 }

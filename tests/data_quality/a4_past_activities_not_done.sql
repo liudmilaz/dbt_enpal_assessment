@@ -1,7 +1,7 @@
 {{ config(
     severity='error',
     tags=['dq_known_issue', 'dq_process'],
-    meta={'issue': 'A4', 'owner': 'sales_ops', 'quality_dimension': 'consistency', 'description': 'Found (EDA 00 A4): only about half of every activity type is marked done, although all of them are due before the export cut-off. Handled: steps 2.1 and 3.1 count done calls only.'}
+    meta={'issue': 'A4', 'owner': 'sales_ops', 'quality_dimension': 'consistency', 'description': 'Found (EDA 00 A4): only about half of every activity type is marked done, although all of them are due before the export cut-off. Handled: steps 2.1 and 3.1 count a call as held when it is marked done or was due before the export ended.'}
 ) }}
 
 -- the export cut-off: the last change of the deal history

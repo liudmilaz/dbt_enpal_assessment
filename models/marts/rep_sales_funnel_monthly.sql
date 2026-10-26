@@ -1,7 +1,7 @@
 -- One row per month and funnel step (FUNNEL_MONTH in the logical model): the number of deals that reached the step in
 -- that month. Stage steps: distinct deals whose first entry into the stage (recorded or inferred, D1) falls in the
--- month. Call steps 2.1 and 3.1: distinct deal ids with a done call of that type due in the month (A2: these ids are
--- not the funnel deals). The report runs from the first to the last month with any step in the data; months
+-- month. Call steps 2.1 and 3.1: distinct deal ids with a held call of that type due in the month (A2: these ids are
+-- not the funnel deals). A call counts as held when it is marked done or was due before the export ended (A4). The report runs from the first to the last month with any step in the data; months
 -- without deals show 0. Step 1 is dated like every other stage: the first entry into stage 1.
 
 -- the 11 funnel steps, with the stage of each stage step
@@ -36,14 +36,18 @@ stage_counts as (
         e.month
 ),
 
--- call steps: distinct deal ids with a call due in the month
+-- call steps: the held calls with the month they were due
 calls as (
     select
         funnel_step,
         deal_id,
         date_trunc('month', due_at)::date as month
     from {{ ref('int_pipedrive__sales_calls') }}
-    where is_done  -- held calls only, not planned ones
+    -- held calls: marked done, or due before the export ended. Every call in this export was due before the export
+    -- ended, but only about half are marked done: reps hold calls without marking them done (A4, to confirm with Enpal).
+    -- Calls due after the export end stay planned and are left out until they are marked done.
+    where is_done
+        or is_due_before_export_end
 ),
 
 -- deal ids per call step and month
