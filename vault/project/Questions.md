@@ -2,6 +2,8 @@
 
 The questions that change the counts of `rep_sales_funnel_monthly` the most, and the first four the count of closed deals. Ask them first.
 
+**Note:** the provided data set is most probably synthetic, so some of its behaviour may be inconsistent and not fully reflect reality. The questions below treat each pattern as if it came from a real export, to show how I would clarify it with the business.
+
 **1. Skipped stages
 - **Question** (sales ops, KPI owner): reps often move a deal several stages at once, for example from Lead Generation straight to Needs Assessment. Did the customer pass the skipped stages, so that the deal counts under each of them?
 - **Explanation**: most deals skip at least one stage. It is data entry behaviour, not a system error: with a high workload, reps update the pipeline afterwards in one move, and Pipedrive allows it.

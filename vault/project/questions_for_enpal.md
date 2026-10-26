@@ -13,6 +13,8 @@ Every assumption made in the implementation, as a question to whoever can confir
 
 The evidence behind each question is in [[data_quality_issues]] (query per issue), [[cleansing_proposals]] (decisions) and [[deal_history_and_questions_for_enpal]] (deal 399956 and the three questions with SQL). Background: [[approach -- keep]].
 
+**Note:** the provided data set is most probably synthetic, so some of its behaviour may be inconsistent and not fully reflect reality. The questions below treat each pattern as if it came from a real export, to show how I would clarify it with the business.
+
 ## 1. Data team (onboarding)
 
 ### The export and its load
