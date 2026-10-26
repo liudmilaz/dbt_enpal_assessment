@@ -4,7 +4,7 @@ Every data quality issue found in the exploratory analysis of the Pipedrive expo
 
 The queries behind the counts are not repeated here. They are in the dashboards built with Claude charts (private artifacts on claude.ai, shared with the reviewers):
 
-- [Pipedrive exploratory analysis](https://claude.ai/artifact/6PhtBmyakkfguDDMiyXj1e): one tab per raw table with the affected raw rows of each issue and its query, plus the tabs "Tables, keys and nulls" and "Issues and decisions".
+- [Pipedrive exploratory analysis](https://claude.ai/artifact/6PhtBmyakkfguDDMiyXj1e): one tab per raw table with the affected raw rows of each issue and its query, plus the tab "Tables, keys and nulls".
 - [Pipedrive funnel EDA](https://claude.ai/artifact/TFJEc4EbMPTMELGNdeFpvJ): the Pipedrive terms, the data cleansing assumptions, a preview of the monthly report and a reading of the results.
 
 The same issues run as dbt tests in `tests/data_quality/` (tag `dq_known_issue`); `bash scripts/dq_report.sh` shows their affected rows locally.
