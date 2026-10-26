@@ -25,7 +25,7 @@ models:
   - name: rep_sales_funnel_monthly
     description: >
       The task's report: one row per month and funnel step, from the first to the last month with any step in the data,
-      zero-filled. Stage steps count distinct deals (DUP-6 excluded by int_pipedrive__deals)
+      zero-filled. Stage steps count distinct deals (DUP-6 excluded upstream, in int_pipedrive__deal_stage_entries)
       whose first entry into the stage (recorded or inferred) falls in the month; steps 2.1 and 3.1 count distinct
       deal ids with a done call due in the month, which are not the funnel deals (A2)
       and are 0 for months after the activity export ends (X1).

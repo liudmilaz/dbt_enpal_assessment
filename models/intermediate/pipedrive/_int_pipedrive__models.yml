@@ -16,12 +16,12 @@ models:
         data_tests: [unique, not_null]
 
   - name: int_pipedrive__deal_stage_entries
-    description: "One row per deal and recorded stage, dated by the first entry: a re-entry of a stage already entered counts once."
+    description: "One row per funnel deal and recorded stage, dated by the first entry: a re-entry of a stage already entered counts once. Only the deals of int_pipedrive__deals: Duplicate Entry deals (DUP-6) are left out here."
     config:
       meta: { grain: "deal_id, stage_id", primary_key: [deal_id, stage_id] }
     columns:
       - name: deal_id
-        description: "The sales opportunity; DUP-6 deals are still here and dropped in int_pipedrive__deals."
+        description: "The funnel deal; Duplicate Entry deals (DUP-6) are already left out."
         data_tests: [not_null]
       - name: stage_id
         description: "The pipeline stage the deal entered, 1 (Lead Generation) to 9 (Renewal/Expansion)."
@@ -41,7 +41,7 @@ models:
           arguments: { combination_of_columns: [deal_id, stage_id] }
     columns:
       - name: deal_id
-        description: "The sales opportunity; DUP-6 deals are still here and dropped in int_pipedrive__deals."
+        description: "The funnel deal; Duplicate Entry deals (DUP-6) are already left out."
         data_tests: [not_null]
       - name: stage_id
         description: "The pipeline stage the deal reached, recorded or inferred: 1 (Lead Generation) to 9 (Renewal/Expansion)."

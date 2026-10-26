@@ -13,22 +13,13 @@ with steps as (
     from {{ ref('dim_funnel_step') }}
 ),
 
--- deals (DUP-6 already excluded by int_pipedrive__deals)
-deals as (
-    select
-        deal_id
-    from {{ ref('int_pipedrive__deals') }}
-),
-
--- stage steps: the month each funnel deal first reached each stage
+-- stage steps: the month each funnel deal first reached each stage (DUP-6 already excluded upstream)
 stage_entries as (
     select
-        e.deal_id,
-        e.stage_id,
-        date_trunc('month', e.entered_at)::date as month
-    from {{ ref('int_pipedrive__deal_stage_entries_backfilled') }} e
-    inner join deals d
-        on d.deal_id = e.deal_id
+        deal_id,
+        stage_id,
+        date_trunc('month', entered_at)::date as month
+    from {{ ref('int_pipedrive__deal_stage_entries_backfilled') }}
 ),
 
 -- deals per stage step and month
