@@ -85,6 +85,29 @@ The issues found in the exploratory analysis that change a count or a name of `r
 - anomaly detection (Elementary volume, freshness, dimension and schema monitors), once there is load history to train on;
 - custom tests per business process, agreed with sales ops and the CRM admin (for example call outcomes, lead routing, stage rules).
 
+## Further development: the funnel per user
+
+The report has no user dimension. The `users` table is not used, but not because users are missing: every deal owner and activity assignee exists in it.
+
+**Why it is not used yet**
+1. The task's report has no user dimension.
+2. Owners are spread thin (U2): a month × step × owner table would be almost all zeros and ones.
+3. The table is current state only, with no team, role or history. Shared emails (U1) are not a problem, because the joins use the id.
+
+**What the data supports**
+- Ownership history works for attribution: owners are set before stage 1 in almost every case, so every stage entry has an owner at the moment of entry (as-of join on the `user_id` changes).
+- Calls cannot use the deal owner: on the 8 activities whose deal is in the history, the assignee is never one of that deal's owners (A2). Calls per user use the activity's assignee.
+
+**Proposed refactor** (not implemented). `rep_sales_funnel_monthly` and its contract stay as they are; added:
+1. `int_pipedrive__deal_owner_history`: one row per deal and owner period (`valid_from` = the change time, `valid_to` = the next change), built from the `user_id` changes; tested for overlapping periods per deal.
+2. `dim_user`: from `stg_pipedrive__users`, with flags for owner, assignee and shared email; team and role once Enpal supplies a mapping (S15).
+3. Event-grain facts, with relationship tests to `dim_user`:
+   - `fct_deal_stage_entries`: deal × stage, with `entered_at`, `is_inferred` and `owner_user_id` as of `entered_at`;
+   - `fct_sales_calls`: with `assigned_user_id` and `is_done`.
+4. Slicing per user in a semantic layer or BI tool on these facts, not as another monthly table, because distinct deal counts do not add up across owners or months.
+
+To confirm with Enpal: the attribution rule, i.e. the owner at the time of stage entry (proposed), the current owner, or the first owner.
+
 ## Repository
 
 | Path | Content |
