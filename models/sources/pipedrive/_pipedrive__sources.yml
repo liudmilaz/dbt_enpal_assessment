@@ -27,7 +27,7 @@ sources:
         description: >
           Event log of deal field changes, the only source of deals: one row per change of one field of one deal.
           Four field keys: add_time (creation), user_id (owner), stage_id (stage entered) and lost_reason.
-          Known patterns: the history looks generated (D5: changes at the creation clock time) and stages are often skipped (D1).
+          Known patterns: changes fall on the deal's creation time of day (D5) and stages are often skipped (D1).
         config:
           meta:
             table_kind: fact
