@@ -1,10 +1,8 @@
 # EDA findings
 
-The business context (company, the sale, each KPI's meaning and its data) is in `vault/project/business_context.md`; field descriptions with links to the Pipedrive documentation in `vault/project/data_dictionary.md`.
+The business context (company, the sale, each KPI's meaning and its data, and what the business would expect against what the data shows) is in [[business_context]]; field descriptions with links to the Pipedrive documentation in [[data_dictionary]]. Every finding is an assumption to confirm with the stakeholders ([[approach]]).
 
-Exploratory analysis of the six raw Pipedrive tables, loaded into schema `public` of the Docker Postgres. One analysis file per raw table in `analyses/`, one overall data-quality file, and one file of business questions. Numbers were checked against the loaded data on 2026-10-22. Each finding ends with its consequence for the model.
-
-Files `00` to `06` are in the solution PR; `07` to `09` are kept local (gitignored).
+Exploratory analysis of the six raw Pipedrive tables. One analysis file per raw table in `analyses/` and one file of the main data quality issues. Numbers were checked against the loaded data on 2026-10-22. Each finding ends with its consequence for the model.
 
 | File | Table | Class |
 |---|---|---|
@@ -15,9 +13,6 @@ Files `00` to `06` are in the solution PR; `07` to `09` are kept local (gitignor
 | `04_users.sql` | `users` | dictionary (master data) |
 | `05_stages.sql` | `stages` | dictionary |
 | `06_fields.sql` | `fields` | dictionary (metadata) |
-| `analyses/07_data_quality_findings.sql` (local) | all | the overall list of data-quality findings (28 checks) |
-| `analyses/08_business_questions.sql` (local) | all | the funnel KPIs read against the business: what Enpal's sales process would lead us to expect, and what the data shows |
-| `analyses/09_review_later.sql` (local) | `deal_changes` | statistical checks (IQR on stage gaps, gap shape, month spine) and open questions to go through later |
 
 Every per-table file has the same sections: 1 rows and columns, 2 primary key (rows that share the candidate key, found with `count(*) over (partition by ...)`), 3 foreign keys (rows whose value is missing in the parent), 4 nulls per column, 5 outliers (facts only: rows per month, quarter and year, per dimension, and per dimension and month; not applicable for dictionaries), 6 descriptive analytics. The result of each query is written as a comment under it.
 
@@ -59,20 +54,9 @@ Every per-table file has the same sections: 1 rows and columns, 2 primary key (r
 - **Descriptive:** stage labels and lost-reason options sit in `field_value_options` as JSON.
 - **Consequence:** unnest the JSON in staging for stage labels and lost-reason options; leave `field_value_options` nullable.
 
-## analyses/08_business_questions.sql: the funnel read against the business
+## All data quality checks (28)
 
-Each block starts from what a household energy sale would lead us to expect; the expectation, the result and the consequence are tabled in `vault/project/business_context.md` (What the business would expect, and what the data shows).
-
-- **B1 Lead Generation:** a deal is created, gets an owner after a median 15 days and enters stage 1 after 35 days (owner first for all 1,995). Creation and stage 1 entry give different monthly Step 1 counts (2024-01: 247 vs 30).
-- **B2 Stages:** the funnel barely narrows (5 deals stop at stage 1, 399 at stage 8, 324 reach stage 9); 84% skip a stage; 5 deals run the pipeline twice.
-- **B3 Sale length:** stage 1 to Closing median 50 days (IQR 35 to 66): plausible.
-- **B4 Sales calls:** flat ~130 per type per month from 2024-01, when only 6 deals had reached stage 2; end 2024-09-13; 50% done for every type; of the 8 activities whose deal id matches, only one fits the deal's timeline.
-- **B5 Lost reason:** set 1 to 30 days after the last stage event for every deal, evenly spread over all stages: a closure label, not an outcome.
-- **B6 Owners:** 1,347 owners for 1,995 deals; 499 of 505 owner changes happen before stage 1.
-
-## analyses/07_data_quality_findings.sql: all data-quality findings (28 checks)
-
-One result row per check; the detail query of each finding is in the per-table file named in its last column. Severity is the proposed dbt test severity (error: our own pipeline would be wrong; warn: known upstream defect, fixed in staging; info: documented only).
+One result row per check; the detail query of each finding is in the per-table file named in its last column. Severity is the one proposed during the analysis (error: our own pipeline would be wrong; warn: known upstream defect, handled in the pipeline; info: documented only). The issues with violations became the singular tests in `tests/data_quality/`.
 
 | # | Table | Class | Finding | Violations | Severity |
 |---|---|---|---|---|---|
@@ -107,47 +91,7 @@ One result row per check; the detail query of each finding is in the per-table f
 
 Not in the export: deal status (open, won, lost), pipeline, value, person and organization, who changed a field, the previous value, and when an activity was completed.
 
-**Consequence:** tests per class in the staging YAML with the severities above; the failing `warn` findings stay documented and are fixed in staging (surrogate key for `activity`, one row per deal for the two-lifecycle deals); the open business questions are in `vault/project/approach.md`.
-
-### Proposed dbt tests (by check)
-
-| Check | Class | Proposed dbt test (layer) | Severity |
-|---|---|---|---|
-| Duplicate events (double load) | record | `unique_combination_of_columns [deal_id, changed_field_key, change_time]` (stg deal_changes) | error |
-| Nulls in required columns | field | `not_null` on keys, key, time, value (staging) | error |
-| Event key outside the four known | field | `accepted_values` on `changed_field_key` (staging) | error |
-| Stage id outside 1 to 9 | field | `accepted_values` on the cast stage id (staging) | error |
-| Stage id missing from `stages` | referential | `relationships` stage events to `stg_pipedrive__stages` (staging) | error |
-| Owner id missing from `users` | referential | `relationships` owner events to `stg_pipedrive__users` (staging) | error |
-| Activity assignee missing from `users` | referential | `relationships` (staging) | error |
-| Activity type missing from `activity_types` | referential | `relationships` (staging) | error |
-| First stage is not 1 | business logic | singular or `expression_is_true` (intermediate) | error |
-| Stage event before creation | business logic | singular (intermediate) | error |
-| Same-timestamp stage ties | record | `unique_combination_of_columns [deal_id, change_time]` filtered to stage events (intermediate) | error |
-| Deals with two `add_time` | record | `unique` on `deal_id` in the raw filter at warn; `unique` on `int_pipedrive__deals.deal_id` at error | warn on raw, error after dedupe |
-| Two `lost_reason` per deal | record | same pattern | warn |
-| `lost_reason` before last stage event | business logic | singular | warn |
-| Users sharing an email | record | `unique` on email in `stg_pipedrive__users` | warn |
-| Repeated `activity_id` | record | `unique` on `activity_id` in raw at warn; `unique` on the surrogate key at error | warn on raw |
-| Activity `deal_id` missing from `deal_changes` | referential | `relationships` kept as a documented known failure, not promoted as an error | warn |
-| Stage moves not exactly +1 | business logic | informational probe only, do not promote | none |
-| Report total of step 1 equals distinct deals (1,995) | reconciliation | singular (marts) | error |
-
-## dbt test probe run (44 tests: 37 pass, 7 fail)
-
-Files: `models/staging/pipedrive/_pipedrive__sources.yml`, `tests/exploration/explore_*.sql`. Failing rows are in schema `public_dbt_test__audit`.
-
-| Failing test | Rows |
-|---|---|
-| `activity.deal_id` relationships to `deal_changes.deal_id` | 4,571 |
-| `explore_stage_moves_not_forward_by_one` (informational) | 2,512 (2,502 skips + 8 backward + 2 repeats) |
-| `activity.activity_id` unique | 11 |
-| `users.email` unique | 4 |
-| one `add_time` per deal | 5 |
-| one `lost_reason` per deal | 5 |
-| `explore_lost_before_last_stage` | 4 |
-
-Gotchas: two tests with the same generated name need `name:`; `source('a', 'b')` inside a YAML flow mapping breaks the parse (use block style); `relationships` cannot cast text to integer, so use a singular test.
+**Consequence:** tests per class in the staging YAML with the severities above; the failing `warn` findings stay documented and are fixed in staging (surrogate key for `activity`, one row per deal for the two-lifecycle deals); the open business questions are in [[deal_history_and_questions_for_enpal]].
 
 ## Pipedrive terms that explain the data
 

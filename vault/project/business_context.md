@@ -1,72 +1,81 @@
-# Business context
+---
+tags:
+  - project/enpal
+  - type/assumption
+---
 
-The one place for the business context of the task. The analysis files in `analyses/` refer here instead of repeating it. Field definitions with links to the Pipedrive documentation are in `vault/project/data_dictionary.md`; the assignment is in `vault/project/task.md`.
+# Business context and the funnel
+
+The business context of the task and **my assumption** of how a deal goes through Enpal's sale, built from the company description, the CRM data and the Pipedrive vocabulary. It is not confirmed by Enpal and has to be checked with the KPI owner (head of sales or revenue operations), see [[approach]]. Fields: [[data_dictionary]]; entities and relationships: [[logical_model]].
 
 ## The company
 
 From the company description provided with the task: Enpal is a Berlin-based energy company that sells residential and commercial energy solutions (PV systems, battery storage, EV wallboxes, heat pumps, smart meters, energy management) with zero-upfront-cost rental or purchase options. It serves over 115,000 customers; Enpal Energy is its electricity division.
 
-The role (Senior Analytics Engineer) asks for governed metric definitions, a semantic layer and machine-readable documentation that AI analytics tools can use as context. So every KPI below needs one written definition, and every field one description.
+## The sale behind the data
 
-## The sale and the funnel
+Selling a solar system to a household is a long, consultative sale: a lead shows interest, a sales rep qualifies it, consultation calls follow, the roof, consumption and budget are assessed, a system is designed and offered (rental or purchase), the offer is negotiated and signed, then the system is installed and connected, and after-sales follows (service, add-ons such as storage, a wallbox, a heat pump or an electricity contract).
 
-My assumption of how a deal goes through Enpal's sale, the funnel diagram and the KPI-to-data map are in `vault/project/sales_funnel_assumptions.md`.
-
-## How the tables relate
-
-There is no deals table: a deal exists only as the `deal_id` of its change events.
+Pipedrive, the CRM in the export, records this as **deals** moving through the **stages** of a **pipeline**, owned by **users** (sales staff), with **activities** (calls, meetings) planned against them. There is no deals table: a deal exists only as the `deal_id` of its change events.
 
 ```mermaid
-erDiagram
-    deal_changes }o--|| fields : "changed_field_key = field_key"
-    deal_changes }o--o| stages : "new_value = stage_id (key stage_id)"
-    deal_changes }o--o| users : "new_value = id (key user_id, the owner)"
-    deal_changes }o--o| fields : "new_value = option id (key lost_reason)"
-    activity }o--|| activity_types : "type = type"
-    activity }o--|| users : "assigned_to_user = id"
-    activity }o..o{ deal_changes : "deal_id (only 8 of 4,579 rows match)"
+flowchart LR
+    subgraph sale["Sale: deal_changes, stage events"]
+        s1["1 Lead Generation<br/>household shows interest"]
+        s2["2 Qualified Lead<br/>fits a product"]
+        s3["3 Needs Assessment<br/>roof, consumption, budget"]
+        s4["4 Proposal/Quote<br/>system designed, offer"]
+        s5["5 Negotiation<br/>offer adjusted"]
+        s6["6 Closing<br/>contract signed"]
+    end
+    subgraph after["After the sale: deal_changes, stage events"]
+        s7["7 Implementation/Onboarding<br/>installation, grid connection"]
+        s8["8 Follow-up/Customer Success<br/>after-sales care"]
+        s9["9 Renewal/Expansion<br/>battery, wallbox, heat pump"]
+    end
+    c1(["2.1 Sales Call 1<br/>activity type meeting"])
+    c2(["3.1 Sales Call 2<br/>activity type sc_2"])
+
+    s1 --> s2 --> s3 --> s4 --> s5 --> s6 --> s7 --> s8 --> s9
+    s2 -.-> c1 -.-> s3
+    s3 -.-> c2 -.-> s4
 ```
 
-| Table | Business object | Class |
-|---|---|---|
-| `deal_changes` | the history of each deal: created, owner assigned, stage entered, lost reason set | fact (event log) |
-| `activity` | calls and meetings planned for a user and a deal | fact |
-| `stages` | the nine pipeline stages | dictionary |
-| `activity_types` | the four kinds of activity | dictionary |
-| `users` | sales staff (current state only) | dictionary, master data |
-| `fields` | the deal fields and their option lists (stage labels, lost reasons) | dictionary, metadata |
+Solid arrows: stage events in `deal_changes` (first entry per stage counts). Dotted: consultation calls from `activity`, which in this export cannot be linked to the deals (only 8 of 4,579 deal ids match).
 
-Each relationship of the diagram, with its type and the cardinality measured on the loaded data. Read "1 to many" as: one row on the "1" side, many rows on the other. The entity view of the same relationships (deal, stage entry, owner assignment) is in [[logical_model]].
+## The funnel: each KPI, its business meaning and how it is counted
 
-| Relationship (join) | Type | Diagram | Measured |
-|---|---|---|---|
-| deal : `deal_changes` (`deal_id`) | 1 to many | not drawn: no deals table | every deal has 4 to 17 events |
-| `fields` : `deal_changes` (`field_key` = `changed_field_key`) | 1 to many; each event has exactly 1 field | `}o--\|\|` | 4 fields, 2,000 to 8,906 events each; every event matches |
-| `stages` : `deal_changes` stage events (`stage_id` = `new_value`, key `stage_id`) | 1 to many; only stage events have a stage (0 or 1 per event) | `}o--o\|` | 9 stages, 325 to 2,000 stage events each; no stage unused |
-| `users` : `deal_changes` owner events (`id` = `new_value`, key `user_id`) | 1 to many, optional on the user side | `}o--o\|` | 1,347 owners, 1 to 7 owner events each; 440 users never own a deal; every owner id exists |
-| `fields` lost-reason options : `deal_changes` lost-reason events (option id = `new_value`) | 1 to many | `}o--o\|` | 5 reasons, 377 to 423 events each |
-| `fields` : its options (`field_value_options`) | 1 to many, optional (2 of 4 fields have options) | not drawn | `stage_id`: 9 options, `lost_reason`: 5 |
-| `stages` : stage options in `fields` (`stage_id` = option id) | 1 to 1 | not drawn | 9 to 9; one label spelled differently ("Qualified lead" vs "Qualified Lead") |
-| `activity_types` : `activity` (`type` = `type`) | 1 to many; each activity has exactly 1 type | `}o--\|\|` | 4 types, 1,124 to 1,177 activities each |
-| `users` : `activity` (`id` = `assigned_to_user`) | 1 to many, optional on the user side | `}o--\|\|` | 1,650 users with 1 to 11 activities; 137 users with none; every assignee exists |
-| deal : `activity` (`deal_id`) | intended 1 to many; **not supported** by the data | `}o..o{` (dotted: not enforced) | 8 of 4,579 activities match a deal |
+The step names are the task's. The business meaning is **my interpretation, to confirm with Enpal**; the rule is what `rep_sales_funnel_monthly` implements.
+
+| Step | KPI | Business meaning (interpretation) | Data | Rule in the report |
+|---|---|---|---|---|
+| 1 | Lead Generation | a household shows interest and enters the pipeline | `deal_changes` | first entry into stage 1 |
+| 2 | Qualified Lead | the lead fits a product and is worth a consultation | `deal_changes` | first entry into stage 2 |
+| 2.1 | Sales Call 1 | first consultation call | `activity` | done activities of type `meeting`, by due month |
+| 3 | Needs Assessment | roof, consumption and budget assessed | `deal_changes` | first entry into stage 3 |
+| 3.1 | Sales Call 2 | second consultation call | `activity` | done activities of type `sc_2`, by due month |
+| 4 | Proposal/Quote Preparation | system designed, offer (rental or purchase) prepared | `deal_changes` | first entry into stage 4 |
+| 5 | Negotiation | offer discussed and adjusted | `deal_changes` | first entry into stage 5 |
+| 6 | Closing | contract signed | `deal_changes` | first entry into stage 6 |
+| 7 | Implementation/Onboarding | installation and grid connection | `deal_changes` | first entry into stage 7 |
+| 8 | Follow-up/Customer Success | after-sales care | `deal_changes` | first entry into stage 8 |
+| 9 | Renewal/Expansion | add-ons: storage, wallbox, heat pump, electricity | `deal_changes` | first entry into stage 9 |
+
+Skipped stages count as reached (dated at the earliest entry of a higher stage); Duplicate Entry deals are left out. Not funnel steps: the activity types Follow Up Call and After Close Call.
 
 ## What the business would expect, and what the data shows
 
-Each row is a business expectation tested in `analyses/08_business_questions.sql` (local only; section in brackets).
-
 | Expectation from the business | What the data shows | Consequence for the report |
 |---|---|---|
-| A lead is created, assigned to a rep, then enters the pipeline (B1) | Every deal: created, then an owner ~15 days later (always before stage 1), then stage 1 a median 35 days after creation | Step 1 by creation and by stage 1 entry are different months (2024-01: 247 created, 30 entered stage 1). Open decision |
-| Deals pass every stage in order (B2) | 84% of deals skip at least one stage | Backfill skipped stages with `is_inferred` (decided) |
-| A funnel narrows sharply from step to step (B2) | It barely narrows: only 5 deals stop at stage 1, 324 reach stage 9, the most common last stage is 8 | Report as is; note that the sample looks pre-filtered or generated |
-| A sale takes weeks to months (B3) | Stage 1 to Closing: median 50 days (IQR 35 to 66) | Plausible for a household energy sale |
-| Sales Call 1 happens around Qualified Lead, Sales Call 2 around Needs Assessment (B4) | Calls are flat at ~130 per type per month from January, when almost no deal had reached stage 2 or 3; they end 2024-09-13 while stage events run to 2025-02 | Calls cannot be tied to the funnel deals; steps 2.1 and 3.1 count calls by due month, zero from 2024-10 |
-| A call is linked to a deal in the funnel (B4) | 8 of 4,579 activity rows match a deal id; for those 8 the call dates do not fit the deal's stage dates, except one | The match is coincidence; question for the CRM admin |
-| Calls in the past are mostly done (B4) | Every type is 50% done, although all calls are due before the export ends | Done-only vs all scheduled changes steps 2.1 and 3.1 by half. Open decision |
-| A lost reason means the deal was lost (B5) | Every deal has one, 1 to 30 days after its last stage event, including 324 deals that reached Renewal/Expansion; the five reasons are spread evenly over all stages | Lost reason is a closure label, not an outcome; it does not remove deals from the funnel |
-| A duplicate lead is merged early (B5) | 377 deals are lost as Duplicate Entry; 274 of them reached Closing | Question for the CRM admin |
-| A sales rep owns many deals (B6) | 1,347 owners for 1,995 deals (median 2 deals each); 505 owner changes, 499 of them before stage 1 | Owner is not needed for the report; the user data looks generated |
+| A lead is created, assigned to a rep, then enters the pipeline | Every deal: created, then an owner ~15 days later (always before stage 1), then stage 1 a median 35 days after creation | Step 1 is dated by the stage 1 entry, like every other stage (assumption) |
+| Deals pass every stage in order | 84% of deals skip at least one stage; 683 of 1,081 deals in stages 7 to 9 never recorded Closing | Skipped stages count as reached, flagged `is_inferred` (assumption) |
+| A funnel narrows sharply from step to step | It barely narrows: only 5 deals stop at stage 1, 324 reach stage 9 | Reported as is; the sample looks pre-filtered or generated |
+| Sales Call 1 happens around Qualified Lead, Sales Call 2 around Needs Assessment | Calls are flat at ~130 per type per month from January, when almost no deal had reached stage 2 or 3; they end 2024-09-13 while stage events run to 2025-02 | Steps 2.1 and 3.1 count calls by due month; 0 after the activity export ends |
+| A call is linked to a deal in the funnel | 8 of 4,579 activity rows match a deal id | Calls are not tied to the funnel deals |
+| Calls in the past are mostly done | Every type is 50% done, although all calls are due before the export ends | Done calls only (assumption): it halves steps 2.1 and 3.1 |
+| A lost reason means the deal was lost | Every deal has one, also the 324 deals that reached Renewal/Expansion | Lost reason is a closure label, not an outcome |
+| A duplicate lead is merged early | 377 deals are lost as Duplicate Entry; 274 of them reached Closing | Duplicate Entry deals are left out of the funnel (assumption) |
+| A sales rep owns many deals | 1,347 owners for 1,995 deals (median 2 each) | Owner is not needed for the report; the user data looks generated |
 
 ## What the export cannot answer
 

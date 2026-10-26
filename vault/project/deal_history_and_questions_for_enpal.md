@@ -1,6 +1,6 @@
 # Deal history, stage skipping, backfill and questions for Enpal
 
-All queries below ran on the local Postgres (schema `public`, the raw Pipedrive export); the result is under each query.
+All queries below ran during the exploratory analysis on a local Postgres copy of the raw export (schema `public`; the same data as `ENPAL_RAW.PIPEDRIVE` in Snowflake); the result is under each query.
 
 ## 1. Query behind the deal history table (deal 399956)
 
