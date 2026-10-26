@@ -96,6 +96,8 @@ The tools are only part of it: a proper rollout of the data quality monitoring n
 
 The report is a table for self-service reporting; stable and scalable reporting for the stakeholders needs the BI tool that already exists at Enpal (Tableau, Lightdash or any other) on top of `rep_sales_funnel_monthly`, ideally through a semantic layer (T17 in [[questions_for_enpal]]). No BI tool is part of this solution. Instead, the analysis is shown as two dashboards built with Claude charts: [Pipedrive funnel EDA](https://claude.ai/artifact/TFJEc4EbMPTMELGNdeFpvJ), the Pipedrive terms, the data cleansing assumptions, a preview of the monthly report on the same Snowflake models and a short reading of the results, and [Pipedrive exploratory analysis](https://claude.ai/artifact/6PhtBmyakkfguDDMiyXj1e), the headline findings, one tab per raw table with its data quality issues, the tables, keys and nulls, and a tab with the decisions in the report and every issue found.
 
+Further development of the report, the funnel per user (owner history, `dim_user`, event-grain facts, slicing in the semantic layer), is proposed in the README section "Further development: the funnel per user"; not implemented.
+
 ### Working method
 
 The project follows the method in this vault: exploratory analysis per raw table → findings and data quality list ([[findings]]) → assumptions and questions for the stakeholders ([[deal_history_and_questions_for_enpal]], [[cleansing_proposals]]) → logical model ([[logical_model]]) → models and tests. The general version of the method is the skill `data-project-with-claude-code` (skills repo, PR #7).
