@@ -52,7 +52,7 @@ Every per-table file has the same sections: 1 rows and columns, 2 primary key (r
 ## 06_fields.sql: `fields` (dictionary, 4 rows)
 - **Primary key:** `id`, given by the task, unique and not null. `field_key` is also unique and is the column `deal_changes` references. **Foreign keys:** none. **Nulls:** only `field_value_options`, 2 of 4 rows (`user_id` and `add_time` have no option list; not applicable). **Outliers:** not applicable.
 - **Descriptive:** stage labels and lost-reason options sit in `field_value_options` as JSON.
-- **Consequence:** unnest the JSON in staging for stage labels and lost-reason options; leave `field_value_options` nullable.
+- **Consequence:** unnest the JSON in staging for stage labels and lost-reason options; leave `field_value_options` nullable. For this analysis staging keeps only the fields with an options array (`where field_value_options is not null`); in a real work scenario I would test the allowed fields and options (accepted values), keep every row in staging, and filter to the valid ones later with an inner join, so that new field options stay visible (observability) when they appear.
 
 ## All data quality checks (28)
 
