@@ -62,6 +62,22 @@ Generic tests, and custom tests that show the data quality issues found in the e
 - **Generic, every layer**: unique + not_null on primary and alternate keys, not_null + relationships on foreign keys (on the raw layer also the keys inside `deal_changes.new_value`), accepted values of the funnel steps.
 - **Known data quality issues** (`tests/data_quality/`, tag `dq_known_issue`): one singular test per issue, named by its id (`a1_repeated_activity_id`, `d1_deals_with_skipped_stages`, ...), with Found / Handled in its meta. Each returns the affected raw rows at the table's own grain, and fails (severity error).
 
+### Data quality issues affecting the report
+
+The issues found in the exploratory analysis that change a count or a name of `rep_sales_funnel_monthly`, with how the pipeline cleanses or transforms them. The issues that change nothing in the report are listed in [quality_issues_not_affecting_report.md](quality_issues_not_affecting_report.md).
+
+| Issue | Effect on the report | Cleansing / transformation | Test |
+|---|---|---|---|
+| D1 Skipped stages | Deals jump over stages, so a stage the customer passed is missing. | A skipped stage counts as reached (`is_inferred`), dated by the deal's earliest entry into a higher stage (`int_pipedrive__deal_stage_entries_backfilled`). | `d1_deals_with_skipped_stages` |
+| D2 After-sale without a recorded Closing | Deals reach Implementation or later without Closing. | Closing counts as reached (inferred) through the same backfill. | `d2_after_sale_without_closing` |
+| D3 One deal id, two lifecycles | A merged deal carries two histories. | Each deal counts once per stage, by its first entry (`int_pipedrive__deal_stage_entries`). | `d3_two_creations_per_deal` |
+| DUP-6 Duplicate Entry deals | Duplicates would be counted as real deals. | Dedup deals in staging: every deal with a Duplicate Entry lost reason is left out (`stg_pipedrive__deal_changes`). | `dup6_duplicate_entry_deals_past_closing` |
+| A1 One activity id, two activities | A call could be counted twice. | One row per activity id, the latest due date (`stg_pipedrive__activity`). | `a1_repeated_activity_id` |
+| A2 Activities not linked to the deal history | Calls cannot be tied to the funnel deals. | Steps 2.1 and 3.1 count the calls' own deal ids per month, not joined to the funnel deals (`int_pipedrive__sales_calls`). | `a2_activity_deal_not_in_deal_changes` |
+| A4 Past activities never marked done | Steps 2.1 and 3.1 depend on the done flag. | Done calls only. | `a4_past_activities_not_done` |
+| X1 Exports end on different dates | Calls end months before the deal history. | The report runs to the last month with data; steps 2.1 and 3.1 are 0 after the activity export ends. | `x1_export_end_dates_apart` |
+| S1 Stage spelled two ways | The step names would differ from the task. | Step names from the Stage field labels (`int_pipedrive__funnel_steps`). | `s1_stage_name_differs_from_field_label` |
+
 `dbt build` uses the default selector `pipeline` (`selectors.yml`), which leaves the known issues out, so the pipeline is not blocked by defects of the export it already handles. `bash scripts/dq_report.sh` runs every test and serves the Elementary report: the dashboard gives the overview, with the known issues as failures; each issue's test result page lists its affected raw rows (duplicates, unmatched keys, skipped stages, ...).
 
 **Still to implement**, once the export is loaded on a schedule and agreed with the business:
@@ -77,6 +93,7 @@ Generic tests, and custom tests that show the data quality issues found in the e
 | `models/staging`, `models/intermediate`, `models/marts` | the models |
 | `macros/` | `refresh_src` (test clones), `generate_schema_name` (one schema per layer) |
 | `tests/data_quality/` | custom tests: the known data quality issues, and the lost-reason key of the raw layer |
+| `quality_issues_not_affecting_report.md` | data quality issues found in the analysis that change nothing in the report |
 | `selectors.yml` | `pipeline` (default, without the known issues), `dq_report` (every test) |
 | `analyses/` | exploratory analysis per raw table, SQL with results (kept local until reviewed; added before the final submission) |
 | `scripts/` | Snowflake admin and load scripts, data quality report (`dq_report.sh`) and dashboard (`dq_dashboard.py` with its page template) |
