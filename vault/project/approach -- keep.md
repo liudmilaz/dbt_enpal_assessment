@@ -94,7 +94,7 @@ The tools are only part of it: a proper rollout of the data quality monitoring n
 
 ### Reporting for stakeholders (BI tool)
 
-The report is a table for self-service reporting; stable and scalable reporting for the stakeholders needs the BI tool that already exists at Enpal (Tableau, Lightdash or any other) on top of `rep_sales_funnel_monthly`, ideally through a semantic layer (T17 in [[questions_for_enpal]]). No BI tool is part of this solution. Instead, the analysis is shown as one dashboard built with Claude charts, [Pipedrive funnel and data quality](https://claude.ai/artifact/6PhtBmyakkfguDDMiyXj1e): the first tab is the exploratory analysis of the funnel (on the same Snowflake models as the report), the other tabs the data quality issues per raw table.
+The report is a table for self-service reporting; stable and scalable reporting for the stakeholders needs the BI tool that already exists at Enpal (Tableau, Lightdash or any other) on top of `rep_sales_funnel_monthly`, ideally through a semantic layer (T17 in [[questions_for_enpal]]). No BI tool is part of this solution. Instead, the analysis is shown as two dashboards built with Claude charts: [Pipedrive funnel EDA](https://claude.ai/artifact/TFJEc4EbMPTMELGNdeFpvJ), the exploratory analysis of the funnel on the same Snowflake models as the report, and [Pipedrive exploratory analysis](https://claude.ai/artifact/6PhtBmyakkfguDDMiyXj1e), the headline findings and one tab per raw table with its data quality issues.
 
 ### Working method
 
