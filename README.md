@@ -64,7 +64,7 @@ Generic tests, and custom tests that show the data quality issues found in the e
 
 ### Data quality issues affecting the report
 
-The issues found in the exploratory analysis that change a count or a name of `rep_sales_funnel_monthly`, with how the pipeline cleanses or transforms them. The issues that change nothing in the report are listed in [quality_issues_not_affecting_report.md](quality_issues_not_affecting_report.md).
+The issues found in the exploratory analysis that change a count or a name of `rep_sales_funnel_monthly`, with how the pipeline cleanses or transforms them. All issues, also those that change nothing in the report, with the rows and distinct deals or activities affected, the business case and the cleansing, are in [data_quality_issues.md](data_quality_issues.md).
 
 | Issue | Effect on the report | Cleansing / transformation | Test |
 |---|---|---|---|
@@ -116,7 +116,7 @@ To confirm with Enpal: the attribution rule, i.e. the owner at the time of stage
 | `models/staging`, `models/intermediate`, `models/marts` | the models |
 | `macros/` | `refresh_src` (test clones), `generate_schema_name` (one schema per layer) |
 | `tests/data_quality/` | custom tests: the known data quality issues, and the lost-reason key of the raw layer |
-| `quality_issues_not_affecting_report.md` | data quality issues found in the analysis that change nothing in the report |
+| `data_quality_issues.md` | every data quality issue found in the analysis: rows affected, business case, cleansing, test, link to the dashboards |
 | `selectors.yml` | `pipeline` (default, without the known issues), `dq_report` (every test) |
 | `analyses/` | exploratory analysis per raw table, SQL with results (kept local until reviewed; added before the final submission) |
 | `scripts/` | Snowflake admin and load scripts, data quality report (`dq_report.sh`) and dashboard (`dq_dashboard.py` with its page template) |
