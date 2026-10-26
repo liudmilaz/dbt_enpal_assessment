@@ -87,6 +87,6 @@ All four points of this section were answered on 2026-10-24; the answers are the
 
 - Intermediate: `int_pipedrive__deals` (1,995; flags D1 1,684, D2 683, D3 5), `int_pipedrive__deal_stage_entries` (8,891), `int_pipedrive__deal_stage_entries_backfilled` (1,995 / 1,990 / 1,951 / 1,862 / 1,693 / 1,424 / 1,081 / 723 / 324, equal to [[model_plan]]), `int_pipedrive__sales_calls` (1,142 Sales Call 1, 1,120 Sales Call 2).
 - Marts: `dim_funnel_step` (11 steps, from `int_pipedrive__funnel_steps`), `rep_sales_funnel_monthly` (154 rows, 2024-01 to 2025-02, contract enforced).
-- Open decisions run on the recommended defaults, `step_1_date: stage_entry` and the report window 2024-01 to 2025-02 as vars; done calls only, fixed in the model.
+- Decisions fixed in the models, no vars: step 1 = first entry into stage 1, done calls only, report window = first to last month with data.
 - Tests: unit test of the backfill, reconciliation of the report with the stage entries. Full `dbt build` on a fresh clone: 163 pass, 18 warn (known raw issues), 0 errors.
 - `analyses/` (11 files, 89 statements) and the 47 Lightdash chart queries rewritten to Snowflake SQL and compared with the Postgres results: same numbers, only formatting differs.

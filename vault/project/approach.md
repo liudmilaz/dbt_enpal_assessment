@@ -49,7 +49,7 @@ Limits to know:
 - **Sources**: the six raw tables with descriptions, keys in `meta`, key tests.
 - **Staging** (views, one per raw table): rename and cast once, deduplicate; the names stay stable through the DAG.
 - **Intermediate** (views, one business rule or one grain change per model): deals derived from the change history, stage entries, the backfill of skipped stages, the funnel steps, the sales calls.
-- **Marts** (tables), dimensional where it helps: `dim_funnel_step` (dimension), `fct_deals` (fact, one row per deal), and the task's report `rep_sales_funnel_monthly` with an enforced contract. No full star schema for its own sake: the export has no amounts, no products and too few user attributes for more dimensions.
+- **Marts** (tables): `dim_funnel_step` (dimension) and the task's report `rep_sales_funnel_monthly` with an enforced contract, for self-service reporting by month. Quarters, weeks or years belong to a semantic layer or BI tool on the event grain: the call steps 2.1 and 3.1 count distinct deal ids per month and do not add up across months. No full star schema for its own sake: the export has no amounts, no products and too few user attributes for more dimensions.
 - **Tests**: keys on every layer (unique + not_null on primary and alternate keys, not_null + relationships on foreign keys), one singular test per known data quality issue (failures with the affected raw rows in the Elementary report), a unit test of the backfill and a reconciliation of the report against the stage entries. Still to add with the business process: source freshness, anomaly detection, custom tests. See [[elementary_rollout]].
 
 ### Skills: dbt and Snowflake
