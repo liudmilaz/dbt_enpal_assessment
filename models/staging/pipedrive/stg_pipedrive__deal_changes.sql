@@ -4,7 +4,7 @@
 -- the raw change log, with a surrogate key over the grain (deal, field key, change time)
 with source as (
     select
-        {{ dbt_utils.generate_surrogate_key(['deal_id', 'changed_field_key', 'change_time']) }} as deal_change_key,
+        {{ dbt_utils.generate_surrogate_key(['deal_id', 'changed_field_key', 'change_time']) }} as deal_change_key, --arguable if we need to include timestamp into PK, after the domain knowledge would be easier to understand if the PK is as precise as needed
         deal_id,
         changed_field_key,
         change_time,
