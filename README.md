@@ -50,7 +50,7 @@ ENPAL_ANALYTICS_PROD       same layers, target `prod`, built from main only, rea
 | Report window | from the first to the last month with any funnel step in the data (2024-01 to 2025-02 in this export) | no hardcoded dates; calls and new deals stop on 2024-09-13 (the exports end on different dates), so steps 2.1 and 3.1 are 0 after |
 | Names | `kpi_name` = the task's step name, `funnel_step` = step number as text (`'2.1'`) | the CRM spells one stage differently |
 
-The open questions for the business (KPI owner, CRM admin) and the evidence behind every finding are in `vault/` (documentation PR) and `analyses/` (one exploratory file per raw table, with results under each query).
+The open questions for the business (KPI owner, CRM admin) and the evidence behind every finding are in `vault/` (documentation PR) and in `analyses/` (one exploratory file per raw table, with results under each query; added after the owner's review).
 
 ## Tests
 
@@ -75,7 +75,7 @@ Generic tests, and custom tests that show the data quality issues found in the e
 | `macros/` | `refresh_src` (test clones), `generate_schema_name` (one schema per layer) |
 | `tests/data_quality/` | custom tests: the known data quality issues, and the lost-reason key of the raw layer |
 | `selectors.yml` | `pipeline` (default, without the known issues), `dq_report` (every test) |
-| `analyses/` | exploratory analysis per raw table, Snowflake SQL with results |
+| `analyses/` | exploratory analysis per raw table, SQL with results (kept local until reviewed; added before the final submission) |
 | `scripts/` | Snowflake admin and load scripts, data quality report |
 
 ---
