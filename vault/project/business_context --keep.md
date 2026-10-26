@@ -72,7 +72,7 @@ Skipped stages count as reached (dated at the earliest entry of a higher stage);
 | A funnel narrows sharply from step to step | It barely narrows: only 5 deals stop at stage 1, 324 reach stage 9 | Reported as is |
 | Sales Call 1 happens around Qualified Lead, Sales Call 2 around Needs Assessment | Calls are flat at ~130 per type per month from January, when almost no deal had reached stage 2 or 3; they end 2024-09-13 while stage events run to 2025-02 | Steps 2.1 and 3.1 count calls by due month; 0 after the activity export ends |
 | A call is linked to a deal in the funnel | 8 of 4,579 activity rows match a deal id | Calls are not tied to the funnel deals |
-| Calls in the past are mostly done | Every type is 50% done, although all calls are due before the export ends | Done calls only (assumption): it halves steps 2.1 and 3.1 |
+| Calls in the past are mostly done | Every type is 50% done, although all calls are due before the export ends | A call counts as held when it is marked done or was due before the export ended (assumption); done calls only would halve steps 2.1 and 3.1 |
 | A lost reason means the deal was lost | Every deal has one, also the 324 deals that reached Renewal/Expansion | Lost reason is a closure label, not an outcome |
 | A duplicate lead is merged early | 377 deals are lost as Duplicate Entry; 274 of them reached Closing | Duplicate Entry deals are left out of the funnel (assumption) |
 | A sales rep owns many deals | 1,347 owners for 1,995 deals (median 2 each) | Owner is not needed for the report |

@@ -82,8 +82,8 @@ The questions that change the counts of `rep_sales_funnel_monthly` the most, and
 **5. Calls never marked done (A4)**
 - **Question** (KPI owner, sales ops): many Sales Call 1 and Sales Call 2 activities are never marked done, although all of them were due before the export ended. Is a call that was not marked done a held call for the KPI?
 - **Explanation**: with a high workload, reps hold the call but do not mark it as done.
-- **Impact**: the call steps (Sales Call 1 and Sales Call 2) are much lower with done calls only.
-- **Proposed handling**: count done calls only; the not-done calls stay in `int_pipedrive__sales_calls` (`is_done`) to switch to all scheduled calls if the business decides so.
+- **Impact**: the call steps (Sales Call 1 and Sales Call 2) are about half as high with done calls only.
+- **Proposed handling**: count a call as held when it is marked done or was due before the export ended (the last change of the deal history); a call due after the export end stays planned until it is marked done. Both flags stay in `int_pipedrive__sales_calls` (`is_done`, `is_due_before_export_end`) to switch to done calls only if the business decides so.
 
 Next in line: calls that cannot be linked to the funnel deals (A2) and that end months before the deal history (X1); they do not change the closed deals, but the call steps count calls by month and are empty after the activity export ends.
 
@@ -93,7 +93,8 @@ Next in line: calls that cannot be linked to the funnel deals (A2) and that end 
 |---|---|---|---|
 | S1 | Step 1 Lead Generation = first entry into stage 1, not the creation of the deal (weeks earlier) | When is a lead a lead: when the deal is created, or when it enters the pipeline? | KPI owner |
 | S2 | A skipped stage counts as reached, dated at the earliest entry of a higher stage (D1, D2) | Is a deal in Negotiation counted under Qualified Lead and Needs Assessment? Should the report also show recorded-only steps? | KPI owner, sales ops |
-| S3 | Steps 2.1 and 3.1 count done calls only | Is a scheduled call that was not marked done a call for the KPI? | KPI owner |
+| S3 | Steps 2.1 and 3.1 count a call as held when it is marked done or was due before the export ended (A4) | Is a call that was due before the export ended but never marked done a held call for the KPI? | KPI owner |
+| S20 | The export ended at the last change of the deal history; every call was due before it | When was the export taken? Is the last change of the deal history the right cut-off for a call that is due but not marked done, or should overdue calls only count after a grace period (for example a few days)? | CRM admin, KPI owner |
 | S4 | Calls are counted per month by their own deal ids, not per funnel deal (A2) | Should Sales Call 1 and 2 count calls, deals with a call, or deals of the funnel? | KPI owner |
 | S5 | Sales Call 1 belongs after Qualified Lead (2.1), Sales Call 2 after Needs Assessment (3.1) | Is this the order of the sale, or can a call happen at any stage? | sales ops |
 | S6 | The report runs from the first to the last month with data; steps 2.1 and 3.1 are 0 after 2024-09 | Should months without call data be shown as 0, left blank, or cut? | KPI owner |

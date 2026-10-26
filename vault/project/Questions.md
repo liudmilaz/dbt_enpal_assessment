@@ -24,7 +24,7 @@ The questions that change the counts of `rep_sales_funnel_monthly` the most, and
 
 **5. Calls never marked done
 - **Question** (KPI owner, sales ops): many Sales Call 1 and Sales Call 2 activities are never marked done, although all of them were due before the export ended. Is a call that was not marked done a held call for the KPI?
-- **Impact**: the call steps (Sales Call 1 and Sales Call 2) are much lower with done calls only.
-- **Proposed handling**: count all calls and not only those which are marked as done
+- **Impact**: the call steps (Sales Call 1 and Sales Call 2) are about half as high with done calls only.
+- **Proposed handling**: count a call as held when it is marked done or was due before the export ended, not only the calls marked done.
 
 Next in line: calls that cannot be linked to the funnel deals (A2) and that end months before the deal history (X1); they do not change the closed deals, but the call steps count calls by month and are empty after the activity export ends.
