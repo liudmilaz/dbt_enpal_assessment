@@ -120,7 +120,7 @@ Next in line: calls that cannot be linked to the funnel deals (A2) and that end 
 
 ### Recorded, not valuable for the report
 
-Inconsistencies that change no count or name of the report; recorded only, not followed up (see `quality_issues_not_affecting_report.md` in the dbt PR).
+Inconsistencies that change no count or name of the report; recorded only, not followed up (see `data_quality_issues.md` in the dbt PR, section "Issues that do not affect the report").
 
 | # | Assumption | Question | Who |
 |---|---|---|---|
