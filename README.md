@@ -37,7 +37,7 @@ ENPAL_ANALYTICS_PROD       same layers, target `prod`, built from main only, rea
    Production: `dbt build --target prod` (from `main` only).
 5. **Data quality report and dashboard** (optional): `pip install -r requirements-elementary.txt` in a separate venv, and a Snowflake CLI connection to the account (`snow connection add`, key pair as in `profiles.yml`; name `enpal`, or set `SNOW_CONNECTION`). Then `bash scripts/dq_report.sh` runs every test and serves on http://localhost:8081:
    - the Elementary report: `elementary_report_test.html`;
-   - the data quality dashboard: `dq_dashboard_test.html`, one tab per raw table with a chart of the affected raw rows per issue, a filter on the test names, and the rows of the clicked issue with what was found, how the pipeline cleanses or transforms it and the query behind it.
+   - the data quality dashboard: `dq_dashboard_test.html`, one tab per raw table with a chart of the affected raw rows per issue; clicking a bar shows the rows of that issue with what was found, how the pipeline cleanses or transforms it and the query behind it.
    After a test run alone, `python3 scripts/dq_dashboard.py --target test` rebuilds the dashboard from the latest Elementary results.
 
 ## Decisions and assumptions

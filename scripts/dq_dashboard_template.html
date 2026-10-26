@@ -24,19 +24,14 @@
   .tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); }
   .tab { appearance: none; background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 12px; font: 13px var(--mono); color: var(--muted); cursor: pointer; }
   .tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--fg); }
-  .tab:focus-visible, .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 10px; min-width: 0; }
   h2 { font-size: 16px; font-weight: 500; margin: 0; }
   .note { margin: 0; color: var(--muted); font-size: 12px; }
-  .filter { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  .filter-label { font-size: 12px; color: var(--muted); margin-right: 4px; }
-  .chip { appearance: none; font: 12px var(--sans); padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); cursor: pointer; }
-  .chip[aria-pressed="true"] { color: var(--fg); border-color: var(--fg); }
   .chart { position: relative; min-height: 80px; }
   .chart svg { display: block; overflow: visible; font-family: var(--sans); }
-  .bar-row { cursor: pointer; }
-  .bar-row:focus-visible { outline: none; }
-  .bar-row:focus-visible .hit { stroke: var(--accent); }
+  .bar { cursor: pointer; }
+  .bar:focus-visible { outline: none; stroke: var(--accent); stroke-width: 2; }
   .tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 12px rgb(0 0 0 / .12); padding: 4px 8px; font-size: 12px; white-space: nowrap; opacity: 0; }
   .tip span { display: block; color: var(--muted); }
   .empty { margin: 0; color: var(--muted); }
@@ -61,13 +56,12 @@
 <div class="dq">
   <header>
     <h1>Pipedrive data quality</h1>
-    <p class="lead">The data quality issues found in the exploratory analysis, one tab per raw table, from the latest Elementary run. Pick the tests to compare, then click a bar to open the affected raw rows with what was found and how the pipeline cleanses or transforms it.</p>
+    <p class="lead">The data quality issues found in the exploratory analysis, one tab per raw table, from the latest Elementary run. Click a bar to open the affected raw rows with what was found and how the pipeline cleanses or transforms it.</p>
   </header>
   <nav class="tabs" role="tablist" aria-label="Raw tables" id="tabs"></nav>
   <section class="card">
     <h2>Affected raw rows per issue</h2>
     <p class="note" id="chart-note">Each bar is one known-issue test: the raw rows it returns, at the table's own grain. Click a bar for the rows.</p>
-    <div class="filter" id="filter" aria-label="Tests"></div>
     <div class="chart" id="chart"></div>
   </section>
   <details class="card" id="details" open hidden>
@@ -89,7 +83,7 @@
   const DATA = /*__DATA__*/null;
   const fmt = d3.format(',');
   const $ = (id) => document.getElementById(id);
-  const state = { tab: DATA.tabs[0], off: {}, picked: {}, search: '' };
+  const state = { tab: DATA.tabs[0], picked: {}, search: '' };
   if (DATA.tabs.includes(location.hash.slice(1))) state.tab = location.hash.slice(1);
 
   $('tabs').replaceChildren(...DATA.tabs.map((t) => {
@@ -107,25 +101,15 @@
   function draw() {
     document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === state.tab)));
     const issues = DATA.issues.filter((i) => i.raw_table === state.tab);
-    const chart = $('chart'), filter = $('filter');
+    const chart = $('chart');
     if (!issues.length) {
-      filter.replaceChildren();
       const p = document.createElement('p'); p.className = 'empty';
       p.textContent = 'No known-issue test on this table’s own grain.';
       chart.replaceChildren(p);
       $('details').hidden = true;
       return;
     }
-    const off = state.off[state.tab] || (state.off[state.tab] = new Set());
-    const label = document.createElement('span'); label.className = 'filter-label'; label.textContent = 'Tests';
-    filter.replaceChildren(label, ...issues.map((i) => {
-      const b = document.createElement('button');
-      b.className = 'chip'; b.type = 'button'; b.textContent = i.issue; b.title = i.test;
-      b.setAttribute('aria-pressed', String(!off.has(i.issue)));
-      b.addEventListener('click', () => { off.has(i.issue) ? off.delete(i.issue) : off.add(i.issue); draw(); });
-      return b;
-    }));
-    const shown = issues.filter((i) => !off.has(i.issue));
+    const shown = issues;
     if (!shown.some((i) => i.issue === state.picked[state.tab])) state.picked[state.tab] = shown.length ? shown.slice().sort((a, b) => b.failures - a.failures)[0].issue : null;
     drawChart(chart, shown);
     drawDetails();
@@ -149,29 +133,30 @@
     const tip = d3.select(el).append('div').attr('class', 'tip');
     const picked = state.picked[state.tab];
     const g = svg.selectAll('g.bar-row').data(rows).join('g')
-      .attr('class', 'bar-row').attr('tabindex', 0).attr('role', 'button')
+      .attr('class', 'bar-row')
+      .attr('transform', (d, i) => `translate(0,${i * (rowH + gap)})`);
+    const barY = narrow ? 18 : 6, barH = narrow ? 14 : 22;
+    g.append('text').attr('x', narrow ? 0 : left - 12).attr('y', narrow ? 12 : rowH / 2 + 4)
+      .attr('text-anchor', narrow ? 'start' : 'end').attr('font-size', 12).attr('fill', 'var(--fg)')
+      .text((d, i) => labels[i]);
+    // only the bar is clickable: it opens the issue's rows
+    g.append('rect').attr('class', 'bar').attr('tabindex', 0).attr('role', 'button')
       .attr('aria-label', (d) => `${d.issue} ${d.test}: ${fmt(d.failures)} rows. Show rows.`)
-      .attr('transform', (d, i) => `translate(0,${i * (rowH + gap)})`)
+      .attr('x', left).attr('y', barY).attr('height', barH).attr('rx', 4)
+      .attr('width', (d) => Math.max(6, x(d.failures)))
+      .attr('fill', (d) => d.issue === picked ? 'var(--accent)' : 'var(--bar)')
       .on('click', (e, d) => pick(d.issue))
       .on('keydown', (e, d) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(d.issue); } })
       .on('mousemove', (e, d) => {
         const [mx, my] = d3.pointer(e, el);
         tip.style('opacity', 1).html('');
-        tip.append('span').text(`${d.issue} · ${d.test}`);
+        tip.append('span').text(`${d.issue} \u00b7 ${d.test}`);
         tip.append('div').text(`${fmt(d.failures)} raw rows`);
         const tw = tip.node().offsetWidth;
         tip.style('left', `${Math.min(Math.max(0, mx + 12), el.clientWidth - tw)}px`).style('top', `${my + 14}px`);
       })
       .on('mouseleave', () => tip.style('opacity', 0));
-    g.append('rect').attr('class', 'hit').attr('y', -2).attr('width', width).attr('height', rowH + 4).attr('fill', 'transparent').attr('rx', 4);
-    const barY = narrow ? 18 : 6, barH = narrow ? 14 : 22;
-    g.append('text').attr('x', narrow ? 0 : left - 12).attr('y', narrow ? 12 : rowH / 2 + 4)
-      .attr('text-anchor', narrow ? 'start' : 'end').attr('font-size', 12).attr('fill', 'var(--fg)')
-      .text((d, i) => labels[i]);
-    g.append('rect').attr('x', left).attr('y', barY).attr('height', barH).attr('rx', 4)
-      .attr('width', (d) => Math.max(2, x(d.failures)))
-      .attr('fill', (d) => d.issue === picked ? 'var(--accent)' : 'var(--bar)');
-    g.append('text').attr('x', (d) => left + Math.max(2, x(d.failures)) + 6).attr('y', barY + barH / 2 + 4)
+    g.append('text').attr('x', (d) => left + Math.max(6, x(d.failures)) + 6).attr('y', barY + barH / 2 + 4)
       .attr('font-size', 12).attr('fill', 'var(--muted)').text((d) => fmt(d.failures));
   }
 
