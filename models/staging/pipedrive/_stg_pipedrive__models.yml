@@ -24,11 +24,22 @@ models:
         grain: "deal_change_key (= deal_id, changed_field_key, change_time)"
         primary_key: [deal_change_key]
         logical_entity: DEAL_EVENT
-        cleaning: "new_value split into one typed column per key (D6). Duplicate Entry deals (lost reason 5, DUP-6) are left out with all their changes."
+        cleaning: "new_value split into one typed column per key; the format is tested below. Duplicate Entry deals (lost reason 5, DUP-6) are left out with all their changes."
         caveats:
           - "D5: every change is recorded at the deal's creation time of day; use dates, not durations."
           - "D3: a deal_id can hold two lifecycles, consistent with a duplicate lead merged into one deal."
           - "Only four deal properties are exported; no previous value and no author of a change."
+    data_tests:
+      # format: new_value is text for every key and is typed per key; a new key or a value that does not cast fails here
+      - dbt_utils.expression_is_true:
+          name: one_typed_value_per_change__stg_deal_changes
+          description: "Exactly one typed column is filled per row, the one of its key."
+          arguments:
+            expression: >
+              (case when deal_created_at is null then 0 else 1 end)
+              + (case when owner_user_id is null then 0 else 1 end)
+              + (case when stage_id is null then 0 else 1 end)
+              + (case when lost_reason_id is null then 0 else 1 end) = 1
     columns:
       - name: deal_change_key
         description: "Identifies one change of one deal property at one time; built over the deal, the property and the time."
@@ -47,7 +58,11 @@ models:
           lost_reason (Lost reason). It decides which of the typed columns below holds the new value.
         config:
           meta: { source_column: changed_field_key }
-        data_tests: [not_null]
+        data_tests:
+          - not_null
+          # format: only the four keys that staging types; a new key would arrive untyped
+          - accepted_values:
+              arguments: { values: [add_time, user_id, stage_id, lost_reason] }
       - name: change_time
         description: "When the change was made in the CRM."
         config:

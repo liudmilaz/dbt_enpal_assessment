@@ -1,5 +1,5 @@
 -- One row per change of one deal field (DEAL_EVENT in the logical model).
--- new_value is text for every key (D6): one typed column per key, cast only for its own key.
+-- new_value is text for every key: one typed column per key, cast only for its own key.
 -- DUP-6: reps label accidental duplicates as "Duplicate Entry" (lost reason 5); these are not real sales opportunities,
 -- so every change of such a deal is left out here, also when Duplicate Entry is the first of two lifecycles' lost
 -- reasons (D3). The raw-layer test dup6_duplicate_entry_deals_past_closing still lists them.

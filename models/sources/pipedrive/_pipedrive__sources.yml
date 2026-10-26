@@ -64,7 +64,7 @@ sources:
               - not_null:
                   config: { tags: [dq_check], meta: { owner: data_team } }
           - name: changed_field_key
-            description: "Key of the field that changed; decides how new_value is typed (D6). Every key is a row of fields."
+            description: "Key of the field that changed; decides how new_value is typed (format tested in staging). Every key is a row of fields."
             data_type: TEXT
             config:
               meta: { key: primary, references: fields.field_key }
@@ -82,7 +82,7 @@ sources:
                     meta: { owner: data_team, quality_dimension: consistency }
           - name: new_value
             description: >
-              Value after the change, as text whatever the key (D6): a timestamp equal to change_time for add_time,
+              Value after the change, as text whatever the key (typed per key in staging): a timestamp equal to change_time for add_time,
               a user id for user_id, a stage id for stage_id, a lost-reason option id for lost_reason.
               No previous value and no author in the export. Filter on the key before casting.
             data_type: TEXT
@@ -219,10 +219,18 @@ sources:
             description: "Display name, for example Sales Call 1. The task's step names 2.1 and 3.1 are the names of Sales Call 1 and Sales Call 2."
             data_type: TEXT
           - name: active
-            description: "'Yes' / 'No' as text (T1): whether the type can be chosen for new activities. Staging casts it to is_active."
+            description: "'Yes' / 'No' as text: whether the type can be chosen for new activities. Staging casts it to is_active."
             data_type: TEXT
-            config:
-              meta: { issue: T1 }
+            data_tests:
+              # format: staging reads only 'Yes' as active; any other spelling would turn a type inactive without notice
+              - accepted_values:
+                  name: active_flag_format__activity_types
+                  description: "The flag is the text 'Yes' or 'No'."
+                  arguments: { values: ['Yes', 'No'] }
+                  config:
+                    severity: error
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: validity }
           - name: type
             description: "Key string referenced by activity.type; generated from the name at creation and never changed, so it is the join key (alternate key)."
             data_type: TEXT
