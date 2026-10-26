@@ -1,7 +1,7 @@
 {{ config(
     severity='error',
     tags=['dq_known_issue', 'dq_duplicates'],
-    meta={'issue': 'D3', 'owner': 'crm_admin', 'quality_dimension': 'uniqueness', 'description': 'Found (EDA 01 §6b, 08 B5a, 00 D3): some deal_ids hold two creation events with different timestamps, owners, stage paths and lost reasons: two lifecycles under one id. Assumption: a Pipedrive merge, where the surviving deal inherits the merged deal\'s history. Improve (CRM admin): prevent merges that produce ambiguous history, or export the merge record. Handled: int_pipedrive__deal_stage_entries keeps the first entry per deal and stage. Per-owner reporting per lifecycle needs a stakeholder decision.'}
+    meta={'issue': 'D3', 'owner': 'crm_admin', 'quality_dimension': 'uniqueness', 'description': 'Found (EDA 01 §6b, 08 B5a, 00 D3): some deal_ids hold two creation events with different timestamps, owners, stage paths and lost reasons: two lifecycles under one id. Assumption: a Pipedrive merge, where the surviving deal inherits the merged deal\'s history. Handled: int_pipedrive__deal_stage_entries keeps the first entry per deal and stage. Per-owner reporting per lifecycle needs a stakeholder decision.'}
 ) }}
 
 -- creation events only

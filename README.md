@@ -37,7 +37,7 @@ ENPAL_ANALYTICS_PROD       same layers, target `prod`, built from main only, rea
    Production: `dbt build --target prod` (from `main` only).
 5. **Data quality report and dashboard** (optional): `pip install -r requirements-elementary.txt` in a separate venv, and a Snowflake CLI connection to the account (`snow connection add`, key pair as in `profiles.yml`; name `enpal`, or set `SNOW_CONNECTION`). Then `bash scripts/dq_report.sh` runs every test and serves on http://localhost:8081:
    - the Elementary report: `elementary_report_test.html`;
-   - the data quality dashboard: `dq_dashboard_test.html`, one tab per raw table with a chart of the affected raw rows per issue, a filter on the test names, and the rows of the clicked issue with what was found, what should improve at the source, how the pipeline handles it and the query behind it.
+   - the data quality dashboard: `dq_dashboard_test.html`, one tab per raw table with a chart of the affected raw rows per issue, a filter on the test names, and the rows of the clicked issue with what was found, how the pipeline cleanses or transforms it and the query behind it.
    After a test run alone, `python3 scripts/dq_dashboard.py --target test` rebuilds the dashboard from the latest Elementary results.
 
 ## Decisions and assumptions
@@ -60,7 +60,7 @@ The open questions for the business (KPI owner, CRM admin) and the evidence behi
 Generic tests, and custom tests that show the data quality issues found in the exploratory analysis.
 
 - **Generic, every layer**: unique + not_null on primary and alternate keys, not_null + relationships on foreign keys (on the raw layer also the keys inside `deal_changes.new_value`), accepted values of the funnel steps.
-- **Known data quality issues** (`tests/data_quality/`, tag `dq_known_issue`): one singular test per issue, named by its id (`a1_repeated_activity_id`, `d1_deals_with_skipped_stages`, ...), with Found / Improve / Handled in its meta. Each returns the affected raw rows at the table's own grain, and fails (severity error).
+- **Known data quality issues** (`tests/data_quality/`, tag `dq_known_issue`): one singular test per issue, named by its id (`a1_repeated_activity_id`, `d1_deals_with_skipped_stages`, ...), with Found / Handled in its meta. Each returns the affected raw rows at the table's own grain, and fails (severity error).
 
 `dbt build` uses the default selector `pipeline` (`selectors.yml`), which leaves the known issues out, so the pipeline is not blocked by defects of the export it already handles. `bash scripts/dq_report.sh` runs every test and serves the Elementary report: the dashboard gives the overview, with the known issues as failures; each issue's test result page lists its affected raw rows (duplicates, unmatched keys, skipped stages, ...).
 

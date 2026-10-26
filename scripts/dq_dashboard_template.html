@@ -61,7 +61,7 @@
 <div class="dq">
   <header>
     <h1>Pipedrive data quality</h1>
-    <p class="lead">The data quality issues found in the exploratory analysis, one tab per raw table, from the latest Elementary run. Pick the tests to compare, then click a bar to open the affected raw rows with what was found, what should improve at the source and how the pipeline handles it.</p>
+    <p class="lead">The data quality issues found in the exploratory analysis, one tab per raw table, from the latest Elementary run. Pick the tests to compare, then click a bar to open the affected raw rows with what was found and how the pipeline cleanses or transforms it.</p>
   </header>
   <nav class="tabs" role="tablist" aria-label="Raw tables" id="tabs"></nav>
   <section class="card">
@@ -74,8 +74,7 @@
     <summary id="details-title"></summary>
     <div class="meta">
       <div><h3>Found</h3><p id="d-found"></p></div>
-      <div><h3>Improve at the source</h3><p id="d-improve"></p></div>
-      <div><h3>Handled in the pipeline</h3><p id="d-handled"></p></div>
+      <div><h3>Cleansing / transformation</h3><p id="d-handled"></p></div>
     </div>
     <details class="sql"><summary>Query behind it (compiled test)</summary><pre id="d-sql"></pre></details>
     <div class="tools">
@@ -186,7 +185,6 @@
     if (!issue) return;
     $('details-title').textContent = `${issue.issue} · ${issue.test}`;
     $('d-found').textContent = issue.found;
-    $('d-improve').textContent = issue.improve;
     $('d-handled').textContent = issue.handled;
     $('d-sql').textContent = issue.sql;
     drawRows();

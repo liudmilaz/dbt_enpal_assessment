@@ -13,8 +13,7 @@ version: 2
 # Not implemented yet, to add with the business process: source freshness (loaded_at_field, warn_after / error_after)
 # once the export is loaded on a schedule, Elementary anomaly monitors (volume, freshness, dimension, schema) once
 # there is load history to train on, and custom tests agreed with sales ops and the CRM admin.
-# Test text has three parts: Found (what the analysis saw, and where), Improve (what should change at the source, and
-# who owns it), Handled (what the pipeline does). The size of an issue is the test result, never part of the metadata.
+# Test text has two parts: Found (what the analysis saw, and where) and Handled (how the pipeline cleanses or transforms it). The size of an issue is the test result, never part of the metadata.
 # Keys and relationships from the analysis (vault/project/logical_model.md) are in meta: table_kind, grain, primary_key,
 # foreign_keys on each table, key and references on each key column. Column descriptions: vault/project/data_dictionary.md.
 
@@ -42,7 +41,7 @@ sources:
         data_tests:
           - dbt_utils.unique_combination_of_columns:
               name: pk_grain__deal_changes
-              description: "Found (EDA 01 §2): no key is declared; (deal_id, changed_field_key, change_time) is unique. Improve: none. Handled: staging hashes the three columns into deal_change_key, tested unique + not_null at error."
+              description: "Found (EDA 01 §2): no key is declared; (deal_id, changed_field_key, change_time) is unique. Handled: staging hashes the three columns into deal_change_key, tested unique + not_null at error."
               arguments: { combination_of_columns: [deal_id, changed_field_key, change_time] }
               config:
                 tags: [dq_check]

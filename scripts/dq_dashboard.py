@@ -1,7 +1,7 @@
 """Data quality dashboard: one tab per raw table, built from the results Elementary stores in Snowflake.
 
 Reads the latest run of every known-issue test (tag dq_known_issue): its failed raw rows, its description
-(Found / Improve / Handled) and its compiled SQL, and writes one self-contained HTML page next to the
+(Found / Handled) and its compiled SQL, and writes one self-contained HTML page next to the
 Elementary report. Run it after the tests (scripts/dq_report.sh does both).
 
 Usage: python3 scripts/dq_dashboard.py [--target test|prod] [--connection <snow connection>]
@@ -68,12 +68,11 @@ def query(connection, sql):
 
 
 def split_description(text):
-    # "Found (...): ... Improve (...): ... Handled: ..." -> three parts
-    parts = {"found": text or "", "improve": "", "handled": ""}
-    m = re.match(r"(?s)(Found.*?)(?:\s+Improve\b(.*?))?(?:\s+Handled:(.*))?$", text or "")
+    # "Found (...): ... Handled: ..." -> two parts
+    parts = {"found": text or "", "handled": ""}
+    m = re.match(r"(?s)(Found.*?)(?:\s+Handled:(.*))?$", text or "")
     if m:
-        parts = {"found": re.sub(r"^Found\s*", "", m.group(1) or "").strip(),
-                 "improve": (m.group(2) or "").strip(), "handled": (m.group(3) or "").strip()}
+        parts = {"found": re.sub(r"^Found\s*", "", m.group(1) or "").strip(), "handled": (m.group(2) or "").strip()}
     return parts
 
 

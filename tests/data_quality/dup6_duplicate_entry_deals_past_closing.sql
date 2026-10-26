@@ -1,7 +1,7 @@
 {{ config(
     severity='error',
     tags=['dq_known_issue', 'dq_duplicates'],
-    meta={'issue': 'DUP-6', 'owner': 'sales_ops', 'quality_dimension': 'accuracy', 'description': 'Found (EDA 07 #26-27, 08 B5b): deals lost as Duplicate Entry still reached Closing or later, so duplicates are not caught early. Improve (sales ops): merge duplicate leads before qualification. Handled: staging (stg_pipedrive__deal_changes) leaves out every deal with a Duplicate Entry lost reason, also when it is not the deal\'s last lost reason (D3), so they are not in the funnel.'}
+    meta={'issue': 'DUP-6', 'owner': 'sales_ops', 'quality_dimension': 'accuracy', 'description': 'Found (EDA 07 #26-27, 08 B5b): deals lost as Duplicate Entry still reached Closing or later, so duplicates are not caught early. Handled: staging (stg_pipedrive__deal_changes) leaves out every deal with a Duplicate Entry lost reason, also when it is not the deal\'s last lost reason (D3), so they are not in the funnel.'}
 ) }}
 
 -- lost-reason events that say Duplicate Entry

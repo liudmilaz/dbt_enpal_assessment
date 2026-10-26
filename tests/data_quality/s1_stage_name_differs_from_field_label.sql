@@ -1,7 +1,7 @@
 {{ config(
     severity='error',
     tags=['dq_known_issue', 'dq_types'],
-    meta={'issue': 'S1', 'owner': 'crm_admin', 'quality_dimension': 'validity', 'description': 'Found (EDA 05 §6a, 07 #10): a stage name is spelled differently in stages and in the field labels. Improve (CRM admin): one spelling. Handled: the report names the steps by the Stage field labels (the task\'s spelling), pinned by tests on int_pipedrive__funnel_steps.kpi_name.'}
+    meta={'issue': 'S1', 'owner': 'crm_admin', 'quality_dimension': 'validity', 'description': 'Found (EDA 05 §6a, 07 #10): a stage name is spelled differently in stages and in the field labels. Handled: the report names the steps by the Stage field labels (the task\'s spelling), pinned by tests on int_pipedrive__funnel_steps.kpi_name.'}
 ) }}
 
 -- the stage labels, unpacked from the stage field's options (JSON array of {id, label})
