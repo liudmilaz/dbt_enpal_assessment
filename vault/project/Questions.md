@@ -2,7 +2,7 @@
 
 The questions that change the counts of `rep_sales_funnel_monthly` the most, and the first four the count of closed deals. Ask them first.
 
-**Note:** the provided data set is most probably synthetic, so some of its behaviour may be inconsistent and not fully reflect reality. The questions below treat each pattern as if it came from a real export, to show how I would clarify it with the business.
+**Note:** the provided data set is most probably synthetic, but it is treated as a real case. Some of its behaviour may be inconsistent and not fully reflect reality: inconsistencies without a big impact on the final report are not followed up, only recorded as not valuable for the report. The questions focus on the patterns that change `rep_sales_funnel_monthly`.
 
 **1. Skipped stages
 - **Question** (sales ops, KPI owner): reps often move a deal several stages at once, for example from Lead Generation straight to Needs Assessment. Did the customer pass the skipped stages, so that the deal counts under each of them?

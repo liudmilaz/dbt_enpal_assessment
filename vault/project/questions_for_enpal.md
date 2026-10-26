@@ -13,7 +13,7 @@ Every assumption made in the implementation, as a question to whoever can confir
 
 The evidence behind each question is in [[data_quality_issues]] (query per issue), [[cleansing_proposals]] (decisions) and [[deal_history_and_questions_for_enpal]] (deal 399956 and the three questions with SQL). Background: [[approach -- keep]].
 
-**Note:** the provided data set is most probably synthetic, so some of its behaviour may be inconsistent and not fully reflect reality. The questions below treat each pattern as if it came from a real export, to show how I would clarify it with the business.
+**Note:** the provided data set is most probably synthetic, but it is treated as a real case. Some of its behaviour may be inconsistent and not fully reflect reality: inconsistencies without a big impact on the final report are not followed up, only recorded as not valuable for the report. The questions focus on the patterns that change `rep_sales_funnel_monthly`.
 
 ## 1. Data team (onboarding)
 
@@ -117,6 +117,13 @@ Next in line: calls that cannot be linked to the funnel deals (A2) and that end 
 | # | Assumption | Question | Who |
 |---|---|---|---|
 | S12 | Reps hold calls without marking them done (A4) | How do reps record held calls? Could the phone system mark them done? | sales ops |
+
+### Recorded, not valuable for the report
+
+Inconsistencies that change no count or name of the report; recorded only, not followed up (see `quality_issues_not_affecting_report.md` in the dbt PR).
+
+| # | Assumption | Question | Who |
+|---|---|---|---|
 | S13 | Follow Up Call is inactive but was used all year (T1) | When was it switched off, and what replaced it? | CRM admin |
 | S14 | After Close Calls belong to deals outside this export (A3) | Which deals do after-close calls follow? | after-sales lead |
 | S15 | Several owners per deal, many owners with few deals each (U2); owner is not used | How is the sales team organised (teams, roles, lead routing)? Are per-rep KPIs needed later? | KPI owner |
