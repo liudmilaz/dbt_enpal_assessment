@@ -8,7 +8,7 @@ The assignment ships a local Postgres in Docker. Enpal agreed that this solution
 
 | Step | Counted as | Total deals in the window |
 |---|---|---|
-| 1 to 9 (stages) | distinct deals whose **first entry** into the stage falls in the month; a skipped stage counts as reached (`is_inferred`) and is dated at the next recorded stage | 1,995 / 1,990 / 1,951 / 1,862 / 1,693 / 1,424 / 1,081 / 723 / 324 |
+| 1 to 9 (stages) | distinct deals whose **first entry** into the stage falls in the month; a skipped stage counts as reached (`is_inferred`) and is dated at the earliest entry of a higher stage | 1,995 / 1,990 / 1,951 / 1,862 / 1,693 / 1,424 / 1,081 / 723 / 324 |
 | 2.1 Sales Call 1, 3.1 Sales Call 2 | distinct deal ids with a **done** call of that type due in the month | 566 / 558 |
 
 ## Data flow
@@ -54,11 +54,10 @@ The open questions for the business (KPI owner, CRM admin) and the evidence behi
 
 ## Tests
 
-Two kinds of tests only: keys, and the data quality issues found in the analysis.
+Generic tests, and custom tests that show the data quality issues found in the exploratory analysis.
 
-- **Keys, every layer**: unique + not_null on primary and alternate keys, not_null + relationships on foreign keys (on the raw layer also the keys inside `deal_changes.new_value`).
+- **Generic, every layer**: unique + not_null on primary and alternate keys, not_null + relationships on foreign keys (on the raw layer also the keys inside `deal_changes.new_value`), accepted values of the funnel steps.
 - **Known data quality issues** (`tests/data_quality/`, tag `dq_known_issue`): one singular test per issue, named by its id (`a1_repeated_activity_id`, `d1_deals_with_skipped_stages`, ...), with Found / Improve / Handled in its meta. Each returns the affected raw rows at the table's own grain, and fails (severity error).
-- **Pipeline rules**: a unit test of the backfill rule, the funnel step checks and a reconciliation of the report against the stage entries.
 
 `dbt build` uses the default selector `pipeline` (`selectors.yml`), which leaves the known issues out, so the pipeline is not blocked by defects of the export it already handles. `bash scripts/dq_report.sh` runs every test and serves the Elementary report: the dashboard gives the overview, with the known issues as failures; each issue's test result page lists its affected raw rows (duplicates, unmatched keys, skipped stages, ...).
 
@@ -74,11 +73,10 @@ Two kinds of tests only: keys, and the data quality issues found in the analysis
 | `models/sources/pipedrive/` | sources with descriptions, keys in `meta`, raw-layer key tests |
 | `models/staging`, `models/intermediate`, `models/marts` | the models |
 | `macros/` | `refresh_src` (test clones), `generate_schema_name` (one schema per layer) |
-| `tests/` | singular tests: known data quality issues and raw keys, funnel step count, report reconciliation |
+| `tests/data_quality/` | custom tests: the known data quality issues, and the lost-reason key of the raw layer |
 | `selectors.yml` | `pipeline` (default, without the known issues), `dq_report` (every test) |
 | `analyses/` | exploratory analysis per raw table, Snowflake SQL with results |
 | `scripts/` | Snowflake admin and load scripts, data quality report |
-| `lightdash/` | scripts for an exploratory Lightdash dashboard (optional) |
 
 ---
 

@@ -37,19 +37,6 @@ models:
       meta:
         grain: "month, funnel_step"
         primary_key: [month, funnel_step]
-        # Lightdash: join the step dimension for the funnel order, one metric
-        joins:
-          - join: dim_funnel_step
-            sql_on: ${rep_sales_funnel_monthly.funnel_step} = ${dim_funnel_step.funnel_step}
-            fields: [sort_order, source_type]
-        metrics:
-          total_deals:
-            type: sum
-            sql: ${TABLE}.deals_count
-            label: Deals
-            description: >-
-              Deals that reached the step in the month. Exact for one month; summed over several months it is exact
-              for the stage steps only (steps 2.1 and 3.1 can count a deal once per month).
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments: { combination_of_columns: [month, funnel_step] }
@@ -57,9 +44,6 @@ models:
       - name: month
         description: "First day of the month."
         data_type: date
-        config:
-          meta:
-            dimension: { type: date, time_intervals: [MONTH] }
         constraints: [{ type: not_null }]
       - name: kpi_name
         description: "The step's name, as in the task: Lead Generation, Qualified Lead, Sales Call 1, ..."

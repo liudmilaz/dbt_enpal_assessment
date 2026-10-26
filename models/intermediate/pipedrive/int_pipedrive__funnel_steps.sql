@@ -1,5 +1,7 @@
--- One row per funnel step of the task (FUNNEL_STEP in the logical model): 9 stage steps from the CRM
--- and 2 call steps the task defines. Step names are the Stage field labels, which use the task's spelling (S1).
+-- One row per funnel step of the task (FUNNEL_STEP in the logical model): 9 stage steps and 2 call steps, both from
+-- the CRM dictionaries. Stage step names are the Stage field labels (the task's spelling, S1); call step names are the
+-- activity type names. Nothing in the export links a call type to a stage (the activity fact matches almost no deal,
+-- A2), so the step number of a call follows the task: Sales Call n comes after stage n + 1.
 
 -- the pipeline stages
 with stages as (
@@ -30,19 +32,19 @@ stage_steps as (
         on l.option_id = s.stage_id
 ),
 
--- steps 2.1 and 3.1: the two call types the task counts, not in the CRM's stage list
+-- steps 2.1 and 3.1: the sales call types; Sales Call n is step (n + 1).1
 call_steps as (
     select
-        column1 as funnel_step,
-        column2 as kpi_name,
+        cast(cast(regexp_substr(activity_type_name, '[0-9]+$') as integer) + 1 as varchar) || '.1' as funnel_step,
+        activity_type_name as kpi_name,
         'activity' as source_type,
         cast(null as integer) as stage_id,
-        column3 as activity_type
-    from values
-        ('2.1', 'Sales Call 1', 'meeting'),
-        ('3.1', 'Sales Call 2', 'sc_2')
+        activity_type
+    from {{ ref('stg_pipedrive__activity_types') }}
+    where activity_type_name like 'Sales Call %'  -- Follow Up Call and After Close Call are not funnel steps
 ),
 
+-- stage and call steps together
 all_steps as (
     select * from stage_steps
     union all
