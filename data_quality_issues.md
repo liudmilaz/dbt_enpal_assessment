@@ -60,9 +60,9 @@ They change a count or a name of `rep_sales_funnel_monthly`.
 ### DUP-6
 **Duplicate Entry deals that reached Closing** · `deal_changes` · [rows and query](https://claude.ai/artifact/6PhtBmyakkfguDDMiyXj1e#deal_changes)
 
-- **Found:** 274 lost reasons (274 deals). Grain: one row per Duplicate Entry lost reason of a deal that reached Closing or later.
+- **Found:** 274 lost reasons (274 deals). Grain: one row per Duplicate Entry lost reason of a deal that reached Closing or later. In total 377 deals of the export carry a Duplicate Entry lost reason; staging leaves all of them out.
 - **Business case (assumption):** Reps notice a duplicate late, after working the deal, or use Duplicate Entry for other cases.
-- **Cleansing / transformation:** Leave out in staging every deal with a Duplicate Entry lost reason (377 deals of the export, of which these 274 reached Closing or later), also when it is the first lost reason of a two-lifecycle deal (D3).
+- **Cleansing / transformation:** Dedup deals in staging.
 - **Test:** `dup6_duplicate_entry_deals_past_closing`
 
 ### A1
