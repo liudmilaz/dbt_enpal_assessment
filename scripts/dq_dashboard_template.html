@@ -105,7 +105,11 @@
     if (!issues.length) {
       const p = document.createElement('p'); p.className = 'empty';
       p.textContent = 'No known-issue test on this table’s own grain.';
-      chart.replaceChildren(p);
+      const p2 = document.createElement('p'); p2.className = 'empty'; p2.style.marginTop = '8px';
+      p2.textContent = state.tab === 'fields'
+        ? 'For this analysis, staging keeps only the fields that have an options array (where field_value_options is not null): only single-option fields such as Stage and Lost reason have one. In a real work scenario I would instead test the allowed fields and options (accepted values), keep every row in staging, and filter to the valid ones later with an inner join, so that new field options stay visible (observability) when they appear.'
+        : '';
+      chart.replaceChildren(p, p2);
       $('details').hidden = true;
       return;
     }

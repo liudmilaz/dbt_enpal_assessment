@@ -1,6 +1,10 @@
 -- One row per option of a single-option deal field (FIELD_OPTION, and through it LOST_REASON, in the
 -- logical model): the 9 stage labels and the 5 lost reasons. Fields without options have no rows.
 
+-- For this analysis, only the fields with an options array are kept (filter below). In production I would keep every
+-- field, test the allowed fields and options (accepted values), and filter to the valid ones later with an inner join,
+-- so that new field options stay visible (observability) when they appear.
+
 -- the fields that carry options
 with fields_with_options as (
     select
