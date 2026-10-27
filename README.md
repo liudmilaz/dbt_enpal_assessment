@@ -274,7 +274,7 @@ To confirm with Enpal: the attribution rule, i.e. the owner at the time of stage
 
 ## Further development: the logical model in a Snowflake semantic view
 
-The logical model (`vault/project/06_logical_model.md`) is kept in the dbt YAML: every model names its entity in `meta.logical_entity`, the keys are tested, the marts carry primary and foreign key constraints (informational in Snowflake, visible to tools that read constraints), and `scripts/logical_model.py` draws the diagram from `target/manifest.json`.
+The logical model (`vault/project/06_logical_model.md`) is maintained by hand and follows the dbt models: every model names its entity in `meta.logical_entity`, the keys are tested, and the marts carry primary and foreign key constraints (informational in Snowflake, visible to tools that read constraints).
 
 A suggested next step is to expose the same model to the business through a **Snowflake semantic view**, built with dbt (`semantic_view` materialization):
 
@@ -292,7 +292,6 @@ BI tools and Cortex Analyst would then read the logical model and one definition
 | `models/staging`, `models/intermediate`, `models/marts` | the models |
 | `macros/` | `refresh_src` (test clones), `generate_schema_name` (one schema per layer) |
 | `tests/data_quality/` | custom tests: the known data quality issues, and the lost-reason key of the raw layer |
-| `scripts/logical_model.py` | the logical model as a Mermaid diagram, generated from the dbt YAML (`meta.logical_entity`, keys, relationships tests and constraints) |
 | `selectors.yml` | `pipeline` (default, without the known issues), `dq_report` (every test) |
 | `analyses/` | exploratory analysis per raw table, SQL with results (kept local until reviewed; added before the final submission) |
 | `scripts/` | Snowflake admin and load scripts, data quality report (`dq_report.sh`) and dashboard (`dq_dashboard.py` with its page template) |
