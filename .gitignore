@@ -2,6 +2,8 @@
 target/
 dbt_packages/
 logs/
+# local connection settings and secrets
+.env
 # python
 .venv/
 __pycache__/
