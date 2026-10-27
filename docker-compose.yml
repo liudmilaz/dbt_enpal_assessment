@@ -1,17 +1,19 @@
 version: '3.8'
 
+# Connection settings come from .env (copy .env.example); nothing secret is committed.
 services:
   db:
     image: postgres:latest
     environment:
       POSTGRES_DB: postgres
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin
+      POSTGRES_USER: ${POSTGRES_USER:?set in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      PGPORT: ${POSTGRES_PORT:?set in .env}
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
       - ./raw_data:/raw_data  # Mount raw_data folder to access CSV files
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
 
   data_loader:
     image: postgres:latest
@@ -21,6 +23,8 @@ services:
       - ./raw_data:/raw_data
     entrypoint: /bin/bash /raw_data/load_data.sh
     environment:
-      PGPASSWORD: admin
+      POSTGRES_USER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGPORT: ${POSTGRES_PORT}
     links:
       - db
