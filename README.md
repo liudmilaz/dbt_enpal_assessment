@@ -1,5 +1,7 @@
 # Enpal take-home: Pipedrive sales funnel in dbt on Snowflake
 
+Start with the logical model ([vault/project/06_logical_model.md](vault/project/06_logical_model.md)): the entities, keys and relationships the dbt models implement. Then the approach ([vault/project/02_approach.md](vault/project/02_approach.md)): the findings as assumptions to confirm with the stakeholders, and the technical implementation. The vault is in the documentation PR and opens in Obsidian.
+
 The assignment ships a local Postgres in Docker. Enpal agreed that this solution may run on my own **Snowflake trial account** instead, so the setup section below describes Snowflake and the repository contains no Postgres. Everything the task asks for is unchanged: the same six Pipedrive tables, the same layers, the same reporting model. The role also asks for Snowflake semantic views, and keeping one platform makes the project simpler to read. AI tools (Claude Code) were used as support, as agreed.
 
 ## Result
