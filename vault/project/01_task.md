@@ -22,7 +22,7 @@ In this task, we’ll focus on evaluating three core areas:
 1. Download Docker Desktop (if you don’t have installed) using the official website, install and launch.
 2. Fork this Github project to your Github account. Clone the forked repo to your device.
 3. Open your Command Prompt or Terminal, navigate to that folder, and run the command `docker compose up`.
-4. Now you have launched a local Postgres database with the following credentials:
+4. Now you have launched a local Postgres database (the connection details of the original task are not repeated here).
 5. Connect to the db via a preferred tool (e.g. DataGrip, Dbeaver etc)
 6. Install dbt-core and dbt-postgres using pip (if you don’t have) on your preferred environment.
 7. Now you can run `dbt run` with the test model and check `public_pipedrive_analytics` schema to see the dbt result (with one test model)
