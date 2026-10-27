@@ -7,6 +7,12 @@
 -- the raw change log without the Duplicate Entry deals, with a surrogate key over the grain (deal, field key, change time)
 with source as (
     select
+        -- A timestamp in a primary key is not good practice: in row-store databases the key is indexed, and a wide,
+        -- always-new timestamp makes the index large and slow to maintain; a timestamp's precision can also differ
+        -- between systems or loads, so the same change would get another key. Snowflake has no indexes, but the
+        -- stability argument holds. The export has no change id, so the time is the only column that separates the
+        -- changes of one deal and field. With a better understanding of the processes, the system and the whole
+        -- code base, the key can be improved or adjusted (for example to a change id from the source system, if one is exported).
         {{ dbt_utils.generate_surrogate_key(['deal_id', 'changed_field_key', 'change_time']) }} as deal_change_key, --arguable if we need to include timestamp into PK, after the domain knowledge would be easier to understand if the PK is as precise as needed
         deal_id,
         changed_field_key,
