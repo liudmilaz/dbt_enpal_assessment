@@ -18,16 +18,16 @@ models:
       change of one deal property, as the CRM records it in the deal's history: the deal was created (a lead became
       a deal), assigned to an owner (lead routing, hand-over), moved into a pipeline stage, or closed with a lost reason.
       The export has no deals table, so the deals of the funnel are derived from this history; the first entry of a
-      deal into a stage is what the funnel report counts.
+      the report counts each deal once per stage it reached, in the month the deal was created.
     config:
       meta:
         grain: "deal_change_key (= deal_id, changed_field_key, change_time)"
         primary_key: [deal_change_key]
         logical_entity: DEAL_EVENT
-        cleaning: "new_value split into one typed column per key; the format is tested below. Duplicate Entry deals (lost reason 5, DUP-6) are left out with all their changes."
+        cleaning: "new_value split into one typed column per key, cast only on the rows of its key. Duplicate Entry deals (lost reason 5, DUP-6) are left out with all their changes."
         caveats:
           - "D5: every change is recorded at the deal's creation time of day; use dates, not durations."
-          - "D3: a deal_id can hold two lifecycles, consistent with a duplicate lead merged into one deal."
+          - "D3: a deal_id can hold two lifecycles: possibly two deals merged in Pipedrive, possibly an id collision of the export."
           - "Only four deal properties are exported; no previous value and no author of a change."
     columns:
       - name: deal_change_key
@@ -40,7 +40,10 @@ models:
         description: "The sales opportunity the change belongs to."
         config:
           meta: { source_column: deal_id, key: "primary (part)" }
-        data_tests: [not_null]
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: { to: ref('int_pipedrive__deal_cohorts'), field: deal_id }
       - name: changed_field_key
         description: >
           Which property of the deal changed: add_time (Deal created), user_id (Owner), stage_id (Stage) or
@@ -68,7 +71,7 @@ models:
       - name: owner_user_id
         description: "Owner: the person the deal was assigned or re-assigned to (lead routing, hand-over). Filled on user_id rows only."
         config:
-          meta: { source_column: new_value, crm_label: Owner }
+          meta: { source_column: new_value, crm_label: Owner, logical_entity: OWNER_ASSIGNMENT }
         data_tests:
           - relationships:
               arguments:
@@ -89,7 +92,7 @@ models:
           stg_pipedrive__field_options). Filled on lost_reason rows only. It is set on deals that went on to after-sales too, so it is a
           closure label, not a won/lost outcome (D4).
         config:
-          meta: { source_column: new_value, crm_label: Lost reason }
+          meta: { source_column: new_value, crm_label: Lost reason, references_entity: LOST_REASON, tested_by: fk_lost_reason_in_field_options }
 
   - name: stg_pipedrive__activity
     description: >
@@ -102,14 +105,14 @@ models:
         grain: "activity_id"
         primary_key: [activity_id]
         logical_entity: ACTIVITY
-        cleaning: "DUP-3: deduplicated on activity_id, keeping the row with the latest due_at (the current version)."
+        cleaning: "A1: deduplicated on activity_id, keeping the row with the latest due_at (assumed to be the current version)."
         caveats:
           - "A2: activities rarely match a deal of the deal history, so calls are counted by due month, not per funnel deal."
           - "A4: part of the past activities is never marked done."
           - "X1: the activity export can end earlier than the deal history."
     columns:
       - name: activity_id
-        description: "The activity's id in the CRM; deduplicated in staging (DUP-3)."
+        description: "The activity's id in the CRM; deduplicated in staging (A1)."
         config:
           meta: { source_column: activity_id }
         data_tests: [unique, not_null]
@@ -136,7 +139,7 @@ models:
       - name: deal_id
         description: "The sales opportunity the activity is for."
         config:
-          meta: { source_column: deal_id }
+          meta: { source_column: deal_id, intended_entity: DEAL, note: "A2: rarely a deal of the deal history, so not a tested foreign key" }
         data_tests: [not_null]
       - name: is_done
         description: "Whether the rep marked the activity as done, i.e. it took place. Steps 2.1 and 3.1 count done calls only."

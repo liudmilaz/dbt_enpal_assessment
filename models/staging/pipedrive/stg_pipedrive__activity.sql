@@ -1,5 +1,5 @@
 -- One row per activity (ACTIVITY in the logical model); activity_id is the primary key (decided 2026-10-23).
--- DUP-3: 11 activity_ids appear twice with different user, deal and due date; keep the latest version.
+-- A1: some activity_ids appear twice with a different user, deal and due date; the latest version is kept.
 
 -- the raw activities, renamed and deduplicated on activity_id
 with source as (

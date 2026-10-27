@@ -8,10 +8,15 @@ models:
       One row per funnel step of the task (9 stage steps, 2 call steps), from int_pipedrive__funnel_steps, where the
       steps and names are tested. Names are the task's.
     config:
-      meta: { grain: funnel_step, primary_key: [funnel_step] }
+      contract: { enforced: true }
+      meta: { grain: funnel_step, primary_key: [funnel_step], logical_entity: FUNNEL_STEP }
     columns:
       - name: funnel_step
         description: "Step number as text: '1' to '9', '2.1', '3.1'."
+        data_type: varchar
+        constraints:
+          - type: not_null
+          - type: primary_key   # informational in Snowflake (not enforced); the tests below enforce it
         data_tests:
           - unique
           - not_null
@@ -19,6 +24,7 @@ models:
               arguments: { values: ['1', '2', '2.1', '3', '3.1', '4', '5', '6', '7', '8', '9'] }
       - name: kpi_name
         description: "The step's name as the task spells it, for example Lead Generation or Sales Call 1."
+        data_type: varchar
         data_tests:
           - unique
           - not_null
@@ -38,18 +44,21 @@ models:
                   - Renewal/Expansion
       - name: source_type
         description: "Where the step is counted from: 'stage' (a pipeline stage entry) or 'activity' (a sales call)."
+        data_type: varchar
         data_tests:
           - not_null
           - accepted_values:
               arguments: { values: [stage, activity] }
       - name: stage_id
         description: "The stage of a stage step; null for call steps. The report counts stage entries by it."
+        data_type: number
         data_tests:
           - accepted_values:
               arguments: { values: [1, 2, 3, 4, 5, 6, 7, 8, 9] }
               config: { where: "source_type = 'stage'" }
       - name: sort_order
         description: "Order of the steps in the report: 1, 2, 2.1, 3, 3.1, 4 to 9."
+        data_type: number
         data_tests:
           - unique
           - not_null
@@ -60,18 +69,26 @@ models:
     description: >
       The task's report, by cohort: one row per month and funnel step, from the first to the last month with any step
       in the data, zero-filled. month is the month the deals were created in, as in Pipedrive's deal conversion report
-      (the task does not state which date; decided 2026-10-27). Stage steps count distinct deals (DUP-6 excluded in
+      (following the task's step 2, research of the Pipedrive CRM terms). Stage steps count distinct deals (DUP-6 excluded in
       staging) created in the month that reached the stage at any time (recorded or inferred), so each row is the
       conversion of one month's deals, no step exceeds the one before, and recent months still grow while their
       deals progress. Steps 2.1 and 3.1 cannot be put in a cohort: their deal ids are not the funnel deals and have
-      no creation date (A2), so they count distinct deal ids with a done call due in the month, and are 0 for months
-      after the activity export ends (X1). Stage steps add up across months (one cohort per deal); call steps do
+      no creation date (A2), so they count distinct deal ids with a done call due in the month. The window ends with the last month with data (X1). Stage steps add up across months (one cohort per deal); call steps do
       not (a deal with calls in two months counts in both).
     config:
       contract: { enforced: true }
       meta:
         grain: "month, funnel_step"
         primary_key: [month, funnel_step]
+        logical_entity: FUNNEL_MONTH
+    # informational in Snowflake (not enforced): the keys become visible to tools that read constraints; the tests enforce them
+    constraints:
+      - type: primary_key
+        columns: [month, funnel_step]
+      - type: foreign_key
+        columns: [funnel_step]
+        to: ref('dim_funnel_step')
+        to_columns: [funnel_step]
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments: { combination_of_columns: [month, funnel_step] }
@@ -88,6 +105,9 @@ models:
         description: "Step number as text: '1' to '9', '2.1', '3.1'."
         data_type: varchar
         constraints: [{ type: not_null }]
+        data_tests:
+          - relationships:
+              arguments: { to: ref('dim_funnel_step'), field: funnel_step }
       - name: sort_order
         description: "Position of the step in the funnel, from dim_funnel_step: 1 to 11 in the order 1, 2, 2.1, 3, 3.1, 4 to 9. Sort charts by it; funnel_step is text and sorts '2.1' after '2' only by chance."
         data_type: integer

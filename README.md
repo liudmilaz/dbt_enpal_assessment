@@ -272,6 +272,18 @@ The report has no user dimension. The `users` table is not used, but not because
 
 To confirm with Enpal: the attribution rule, i.e. the owner at the time of stage entry (proposed), the current owner, or the first owner.
 
+## Further development: the logical model in a Snowflake semantic view
+
+The logical model (`vault/project/06_logical_model.md`) is kept in the dbt YAML: every model names its entity in `meta.logical_entity`, the keys are tested, the marts carry primary and foreign key constraints (informational in Snowflake, visible to tools that read constraints), and `scripts/logical_model.py` draws the diagram from `target/manifest.json`.
+
+A suggested next step is to expose the same model to the business through a **Snowflake semantic view**, built with dbt (`semantic_view` materialization):
+
+- `TABLES` with primary keys for the entities a consumer queries: deals (with their creation month), stage entries, funnel steps, sales calls;
+- `RELATIONSHIPS` as in the logical model: stage entry to deal and to funnel step, sales call to funnel step;
+- `METRICS` for the KPIs: deals reaching a step, by creation month (cohort) or by the month of the step, and conversion between steps as derived metrics, recomputed for any grain a query picks.
+
+BI tools and Cortex Analyst would then read the logical model and one definition of each KPI from the semantic view. It would need atomic facts in the marts (one row per deal and stage, one row per call) next to the monthly report, and the KPI owner's choice between the cohort and the event view. Not implemented.
+
 ## Repository
 
 | Path | Content |
@@ -280,6 +292,7 @@ To confirm with Enpal: the attribution rule, i.e. the owner at the time of stage
 | `models/staging`, `models/intermediate`, `models/marts` | the models |
 | `macros/` | `refresh_src` (test clones), `generate_schema_name` (one schema per layer) |
 | `tests/data_quality/` | custom tests: the known data quality issues, and the lost-reason key of the raw layer |
+| `scripts/logical_model.py` | the logical model as a Mermaid diagram, generated from the dbt YAML (`meta.logical_entity`, keys, relationships tests and constraints) |
 | `selectors.yml` | `pipeline` (default, without the known issues), `dq_report` (every test) |
 | `analyses/` | exploratory analysis per raw table, SQL with results (kept local until reviewed; added before the final submission) |
 | `scripts/` | Snowflake admin and load scripts, data quality report (`dq_report.sh`) and dashboard (`dq_dashboard.py` with its page template) |

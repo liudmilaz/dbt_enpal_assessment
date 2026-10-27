@@ -1,7 +1,7 @@
 {{ config(
     severity='error',
     tags=['dq_known_issue', 'dq_export'],
-    meta={'issue': 'X1', 'owner': 'crm_admin', 'quality_dimension': 'freshness', 'description': 'Found (EDA 00 X1, 07 #24): the activity export ends months before the deal history, although both come from one CRM. Handled: the report keeps the late months, zero-filled for the call steps 2.1 and 3.1.'}
+    meta={'issue': 'X1', 'owner': 'crm_admin', 'quality_dimension': 'freshness', 'description': 'Found (EDA 00 X1, 07 #24): the activity export ends months before the deal history, although both come from one CRM. Handled: the report runs from the first to the last month with data, by deal creation month; stage moves after the last creation count in the earlier cohorts.'}
 ) }}
 
 -- the end of the deal history: the export cut-off
