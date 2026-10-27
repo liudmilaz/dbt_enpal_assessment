@@ -1,6 +1,6 @@
 # Assignment text
 
-The take-home assessment as received from Enpal, copied unchanged for reference. How it was solved: [[approach -- keep]]; the decisions on the data: [[cleansing_proposals]].
+The take-home assessment as received from Enpal, copied unchanged for reference. How it was solved: [[02_approach]]; the data quality issues and assumptions: [[05_data_quality_issues_and_assumptions]].
 
 ## Analytics Engineer Take-Home Assessment
 

@@ -6,7 +6,9 @@ tags:
 
 # Data dictionary
 
-Every field of the six raw tables of the Pipedrive CRM export: what it means for Enpal's sales process, the Pipedrive documentation that describes it, and the caveats found in this export. The reading of fields in Enpal's sale is an **interpretation, to confirm with Enpal**. Company and funnel: [[business_context --keep]]; entities and relationships: [[logical_model]].
+> **Remark:** the most relevant metadata (the description of every source, model and column, keys, grain and tests) is stored in dbt: the YAML files next to the models and the model descriptions, published with `dbt docs`. This note is the business reading of the raw fields, kept for the handover.
+
+Every field of the six raw tables of the Pipedrive CRM export: what it means for Enpal's sales process, the Pipedrive documentation that describes it, and the caveats found in this export. The reading of fields in Enpal's sale is an **interpretation, to confirm with Enpal**. Company and funnel: [[04_business_context]]; entities and relationships: [[06_logical_model]].
 
 Documentation used (Pipedrive): [Deals API](https://developers.pipedrive.com/docs/api/v1/Deals), [Activities API](https://developers.pipedrive.com/docs/api/v1/Activities), [Activity types API](https://developers.pipedrive.com/docs/api/v1/ActivityTypes), [Stages API](https://developers.pipedrive.com/docs/api/v1/Stages), [Users API](https://developers.pipedrive.com/docs/api/v1/Users), [Deal fields API](https://developers.pipedrive.com/docs/api/v1/DealFields), support articles [Lost reasons](https://support.pipedrive.com/en/article/lost-reasons), [Customize pipeline stages](https://support.pipedrive.com/en/article/how-can-i-customize-my-pipeline-stages) and [How data is organized](https://support.pipedrive.com/en/article/how-is-pipedrive-data-organized). Where the official page does not define a field, the table says so; some response fields can only be confirmed from third-party references (marked unofficial).
 
@@ -38,7 +40,7 @@ The four kinds of change (`changed_field_key`):
 |---|---|---|---|---|
 | `add_time` | Deal created | A lead became a deal: the household showed interest (web form, call, partner). | the creation timestamp | [Deals API: get all deals](https://developers.pipedrive.com/docs/api/v1/Deals#getDeals): only a sort field, not defined |
 | `user_id` | Owner | The deal was assigned or re-assigned to a person (lead routing, hand-over); a median 15 days after creation, always before stage 1. | the user id of the new owner | [Deals API: add a deal](https://developers.pipedrive.com/docs/api/v1/Deals#addDeal): documented as `owner_id` |
-| `stage_id` | Stage | The deal moved to a pipeline stage; the first entry into a stage is what the funnel counts. | the stage id (1 to 9) | [Deals API: add a deal](https://developers.pipedrive.com/docs/api/v1/Deals#addDeal): documented |
+| `stage_id` | Stage | The deal moved to a pipeline stage; the funnel counts each deal once per stage it reached, in the month the deal was created. | the stage id (1 to 9) | [Deals API: add a deal](https://developers.pipedrive.com/docs/api/v1/Deals#addDeal): documented |
 | `lost_reason` | Lost reason | The deal was closed as lost, with the reason the rep chose from the admin's list. | the reason id (1 to 5) | [Support: Lost reasons](https://support.pipedrive.com/en/article/lost-reasons): documented |
 
 ## activity (fact): one planned activity

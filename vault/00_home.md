@@ -6,23 +6,19 @@ tags:
 
 # Enpal take-home: project vault
 
-The project documentation, as text and Mermaid diagrams. Source of truth: this vault in Google Drive; the documentation PR carries the same files in `vault/`, kept in sync.
+The project documentation for the handover, as text and Mermaid diagrams. Source of truth: this vault in Google Drive; the documentation PR carries the same files in `vault/`, kept in sync.
 
 ## Project documentation (`project/`)
 
 | Note | What it holds |
 |---|---|
-| [[task]] | The assignment as received from Enpal |
-| [[approach]] | The findings as assumptions to confirm with the stakeholders; the UI check in a Pipedrive trial; the technical implementation |
-| [[business_context]] | The company, my assumption of the sale, the funnel KPIs and how each is counted, expectations against the data |
-| [[data_dictionary]] | Every field: business meaning, Pipedrive documentation, caveats in this export |
-| [[logical_model]] | Entities, keys and relationships in crow's foot notation (cardinality and ordinality), with measured counts |
-| [[findings]] | Exploratory findings per raw table and the data quality checks |
-| [[data_quality_issues]] | Per data quality issue: the query that lists the affected raw rows, the result, the business case (assumption) and the proposed fix |
-| [[cleansing_proposals]] | Per data quality issue: logic, exploration, assumption, proposed handling, decisions |
-| [[questions_for_enpal]] | Every assumption of the implementation as a question: data team (onboarding) and stakeholders (regular meetings), and how to organise the meetings |
-| [[deal_history_and_questions_for_enpal]] | One deal's history, stage skipping, the backfill, and the questions for Enpal with SQL |
+| [[01_task]] | The assignment as received from Enpal |
+| [[02_approach]] | The findings as assumptions to confirm with the stakeholders, the Pipedrive trial, the technical implementation |
+| [[03_data_dictionary]] | Every raw field in business terms; the main metadata lives in dbt |
+| [[04_business_context]] | The company, the assumed sale, the funnel KPIs and how each is counted, expectations against the data |
+| [[05_data_quality_issues_and_assumptions]] | Every data quality issue per raw table: question, explanation and assumed origin, impact, proposed handling, dbt test |
+| [[06_logical_model]] | Entities, keys and relationships in crow's foot notation, and the assumptions the model carries |
 
-The SQL is in the repo: the main data quality issues `analyses/00_data_quality_issues.sql`, the per-table profiling `analyses/01` to `06`, and the dbt project.
+The SQL is in the repository: the dbt project and the data quality tests in `tests/data_quality/`.
 
-Not part of the deliverable and not copied to the repo: `archive/` (working notes and plans) and `wiki/` (learning notes, start at [[00_index]] and [[03_qa_log]]).
+Not part of the deliverable and not copied to the repository: `archive/` (working notes, earlier versions) and `wiki/` (learning notes).
