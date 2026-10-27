@@ -28,7 +28,7 @@ ENPAL_ANALYTICS_PROD       same layers, target `prod`, built from main only, rea
 
 1. **Account objects** (once, as ACCOUNTADMIN): `scripts/snowflake_admin.sql` creates the warehouse `ENPAL_WH` (X-Small, suspends after 60 s), the databases `ENPAL_RAW`, `ENPAL_TEST`, `ENPAL_ANALYTICS_PROD`, the role `ENPAL_DBT_ROLE` (read-only on raw) and the service user `ENPAL_DBT_USER` (key pair, no secondary roles). The header of the script shows the `snow sql` call.
 2. **Raw data** (as SYSADMIN): `snow sql -c <admin connection> -f scripts/snowflake_load.sql` loads `raw_data/*.csv` into `ENPAL_RAW.PIPEDRIVE`. It replaces the tables, so a rerun never appends twice.
-3. **Credentials**: copy `scripts/snowflake_env.example` to `~/.snowflake/enpal.env`, fill in account and key path, `source` it. `profiles.yml` reads them from the environment; nothing secret is in the repo.
+3. **Credentials**: copy `scripts/snowflake_env.example` to a file outside the repository, fill in account and key path, `source` it. `profiles.yml` reads them from the environment; nothing secret is in the repo.
 4. **dbt** (venv outside the repo): `pip install -r requirements.txt`, then
    ```bash
    export DBT_PROFILES_DIR=.
@@ -37,7 +37,7 @@ ENPAL_ANALYTICS_PROD       same layers, target `prod`, built from main only, rea
    dbt build                       # target test: models and all tests
    ```
    Production: `dbt build --target prod` (from `main` only).
-5. **Data quality report and dashboard** (optional): `pip install -r requirements-elementary.txt` in a separate venv, and a Snowflake CLI connection to the account (`snow connection add`, key pair as in `profiles.yml`; name `enpal`, or set `SNOW_CONNECTION`). Then `bash scripts/dq_report.sh` runs every test and serves on http://localhost:8081:
+5. **Data quality report and dashboard** (optional): `pip install -r requirements-elementary.txt` in a separate venv, and a Snowflake CLI connection to the account (`snow connection add`, key pair as in `profiles.yml`; name `enpal`, or set `SNOW_CONNECTION`). With the credentials exported (or `ENPAL_ENV_FILE` set to their file), the project's venv active and the Elementary CLI on the `PATH` (or `EDR_BIN` set to it), `bash scripts/dq_report.sh` runs every test and serves on http://localhost:8081:
    - the Elementary report: `elementary_report_test.html`;
    - the data quality dashboard: `dq_dashboard_test.html`, one tab per raw table with a chart of the affected raw rows per issue; clicking a bar shows the rows of that issue with what was found, how the pipeline cleanses or transforms it and the query behind it.
    After a test run alone, `python3 scripts/dq_dashboard.py --target test` rebuilds the dashboard from the latest Elementary results.
@@ -318,4 +318,4 @@ BI tools and Cortex Analyst would then read the logical model and one definition
 5. Column names of the reporting model: `month`, `kpi_name`, `funnel_step`, `deals_count`
 6. “Git commit” all the changes and create a PR to your forked repo (not the original one). Send your repo link to us.
 
-The setup steps of the original task (Docker, local Postgres with admin/admin, `dbt-postgres`) are replaced by the Snowflake setup above, with Enpal's agreement. The project steps are unchanged.
+The setup steps of the original task (Docker, a local Postgres database, `dbt-postgres`) are replaced by the Snowflake setup above, with Enpal's agreement. The project steps are unchanged.

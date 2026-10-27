@@ -5,7 +5,7 @@
 -- Run as ACCOUNTADMIN from the repo root, with the dbt service user's public key (one line, without the BEGIN/END lines)
 -- and the Snowsight user who should see the results:
 --   snow sql -c <admin connection> -f scripts/snowflake_admin.sql \
---     -D dbt_public_key="$(grep -v -- '-----' ~/.ssh/<key>.pub | tr -d '\n')" -D snowsight_user=<USER>
+--     -D dbt_public_key="$(grep -v -- '-----' <path to the public key>.pub | tr -d '\n')" -D snowsight_user=<USER>
 -- Safe to rerun: every statement is "if not exists" or a grant.
 
 use role accountadmin;
