@@ -5,8 +5,10 @@ version: 2
 #      every foreign key not_null + relationships, never unique. Tag dq_check, severity warn: they pass on this export.
 #      Keys inside deal_changes.new_value are tested here with a where on changed_field_key; the lost reason, whose options
 #      are a JSON array, in tests/data_quality/fk_lost_reason_in_field_options.sql.
+#      Allowed values: the stage ids and call type names the report reads (accepted_values below); the stage labels,
+#      a JSON array in fields, in tests/data_quality/accepted_stage_labels__fields.sql.
 #   2. Known issues found in the exploratory analysis: singular tests in tests/data_quality/, named by issue id
-#      (vault/project/cleansing_proposals.md), tag dq_known_issue, severity error, one test per issue. Each returns the
+#      (vault/project/05_data_quality_issues_and_assumptions.md), tag dq_known_issue, severity error, one test per issue. Each returns the
 #      affected raw rows at the table's own grain, so the Elementary report lists them (var test_sample_row_count).
 # The default selector (selectors.yml) leaves the known issues out of dbt build, so they never block the pipeline;
 # scripts/dq_report.sh runs every test and builds the Elementary report.
@@ -14,8 +16,8 @@ version: 2
 # once the export is loaded on a schedule, Elementary anomaly monitors (volume, freshness, dimension, schema) once
 # there is load history to train on, and custom tests agreed with sales ops and the CRM admin.
 # Test text has two parts: Found (what the analysis saw, and where) and Handled (how the pipeline cleanses or transforms it). The size of an issue is the test result, never part of the metadata.
-# Keys and relationships from the analysis (vault/project/logical_model.md) are in meta: table_kind, grain, primary_key,
-# foreign_keys on each table, key and references on each key column. Column descriptions: vault/project/data_dictionary.md.
+# Keys and relationships from the analysis (vault/project/06_logical_model.md) are in meta: table_kind, grain, primary_key,
+# foreign_keys on each table, key and references on each key column. Column descriptions: vault/project/03_data_dictionary.md.
 
 sources:
   - name: pipedrive
@@ -101,6 +103,16 @@ sources:
                     where: "changed_field_key = 'stage_id'"
                     tags: [dq_check]
                     meta: { owner: data_team, quality_dimension: consistency }
+              # allowed values: the report counts stages 1 to 9 (funnel steps 1 to 9)
+              - accepted_values:
+                  name: accepted_stage_ids__deal_changes
+                  description: "Every stage a deal moves into is one of the report's stages 1 to 9."
+                  arguments: { values: ['1', '2', '3', '4', '5', '6', '7', '8', '9'] }
+                  config:
+                    where: "changed_field_key = 'stage_id'"
+                    severity: error
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: validity }
               - relationships:
                   name: fk_owner_in_users__deal_changes
                   description: "Every owner a deal is assigned to is a user of users."
@@ -218,6 +230,17 @@ sources:
           - name: name
             description: "Display name, for example Sales Call 1. The task's step names 2.1 and 3.1 are the names of Sales Call 1 and Sales Call 2."
             data_type: TEXT
+            data_tests:
+              # allowed values: the two call types of the report; int_pipedrive__funnel_steps maps them by name
+              - accepted_values:
+                  name: accepted_call_names__activity_types
+                  description: "The two activity types the report counts (steps 2.1 and 3.1) are named Sales Call 1 and Sales Call 2."
+                  arguments: { values: ['Sales Call 1', 'Sales Call 2'] }
+                  config:
+                    where: "type in ('meeting', 'sc_2')"
+                    severity: error
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: validity }
           - name: active
             description: "'Yes' / 'No' as text: whether the type can be chosen for new activities. Staging casts it to is_active."
             data_type: TEXT
@@ -262,6 +285,15 @@ sources:
                   config: { tags: [dq_check], meta: { owner: data_team } }
               - unique:
                   config: { tags: [dq_check], meta: { owner: data_team } }
+              # allowed values: the report's stages 1 to 9
+              - accepted_values:
+                  name: accepted_stage_ids__stages
+                  description: "Every stage is one of the report's stages 1 to 9."
+                  arguments: { values: [1, 2, 3, 4, 5, 6, 7, 8, 9] }
+                  config:
+                    severity: error
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: validity }
           - name: stage_name
             description: "Stage name as set by the CRM admin; can differ in spelling from the stage label in fields (S1)."
             data_type: TEXT

@@ -12,26 +12,61 @@ models:
     columns:
       - name: funnel_step
         description: "Step number as text: '1' to '9', '2.1', '3.1'."
-        data_tests: [unique, not_null]
+        data_tests:
+          - unique
+          - not_null
+          - accepted_values:
+              arguments: { values: ['1', '2', '2.1', '3', '3.1', '4', '5', '6', '7', '8', '9'] }
       - name: kpi_name
         description: "The step's name as the task spells it, for example Lead Generation or Sales Call 1."
+        data_tests:
+          - unique
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - Lead Generation
+                  - Qualified Lead
+                  - Sales Call 1
+                  - Needs Assessment
+                  - Sales Call 2
+                  - Proposal/Quote Preparation
+                  - Negotiation
+                  - Closing
+                  - Implementation/Onboarding
+                  - Follow-up/Customer Success
+                  - Renewal/Expansion
       - name: source_type
         description: "Where the step is counted from: 'stage' (a pipeline stage entry) or 'activity' (a sales call)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments: { values: [stage, activity] }
       - name: stage_id
         description: "The stage of a stage step; null for call steps. The report counts stage entries by it."
+        data_tests:
+          - accepted_values:
+              arguments: { values: [1, 2, 3, 4, 5, 6, 7, 8, 9] }
+              config: { where: "source_type = 'stage'" }
       - name: sort_order
         description: "Order of the steps in the report: 1, 2, 2.1, 3, 3.1, 4 to 9."
+        data_tests:
+          - unique
+          - not_null
+          - accepted_values:
+              arguments: { values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] }
 
   - name: rep_sales_funnel_monthly
     description: >
-      The task's report: one row per month and funnel step, from the first to the last month with any step in the data,
-      zero-filled. Stage steps count distinct deals (DUP-6 excluded in staging)
-      whose first entry into the stage (recorded or inferred) falls in the month; steps 2.1 and 3.1 count distinct
-      deal ids with a done call due in the month, which are not the funnel deals (A2)
-      and are 0 for months after the activity export ends (X1).
-      Built for self-service reporting by month. Quarters, weeks or years belong to the semantic layer or BI tool,
-      on the event grain: steps 2.1 and 3.1 are distinct deal ids per month, so summing months double-counts a deal
-      with calls in two months.
+      The task's report, by cohort: one row per month and funnel step, from the first to the last month with any step
+      in the data, zero-filled. month is the month the deals were created in, as in Pipedrive's deal conversion report
+      (the task does not state which date; decided 2026-10-27). Stage steps count distinct deals (DUP-6 excluded in
+      staging) created in the month that reached the stage at any time (recorded or inferred), so each row is the
+      conversion of one month's deals, no step exceeds the one before, and recent months still grow while their
+      deals progress. Steps 2.1 and 3.1 cannot be put in a cohort: their deal ids are not the funnel deals and have
+      no creation date (A2), so they count distinct deal ids with a done call due in the month, and are 0 for months
+      after the activity export ends (X1). Stage steps add up across months (one cohort per deal); call steps do
+      not (a deal with calls in two months counts in both).
     config:
       contract: { enforced: true }
       meta:
@@ -42,7 +77,7 @@ models:
           arguments: { combination_of_columns: [month, funnel_step] }
     columns:
       - name: month
-        description: "First day of the month."
+        description: "First day of the month: the deals' creation month for stage steps, the calls' due month for steps 2.1 and 3.1."
         data_type: date
         constraints: [{ type: not_null }]
       - name: kpi_name
@@ -53,7 +88,11 @@ models:
         description: "Step number as text: '1' to '9', '2.1', '3.1'."
         data_type: varchar
         constraints: [{ type: not_null }]
+      - name: sort_order
+        description: "Position of the step in the funnel, from dim_funnel_step: 1 to 11 in the order 1, 2, 2.1, 3, 3.1, 4 to 9. Sort charts by it; funnel_step is text and sorts '2.1' after '2' only by chance."
+        data_type: integer
+        constraints: [{ type: not_null }]
       - name: deals_count
-        description: "Deals that reached the step in the month; 0 when none."
+        description: "Stage steps: deals created in the month that reached the step. Steps 2.1 and 3.1: deal ids with a done call due in the month. 0 when none."
         data_type: integer
         constraints: [{ type: not_null }]

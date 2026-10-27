@@ -1,25 +1,29 @@
--- One row per month and funnel step (FUNNEL_MONTH in the logical model): the number of deals that reached the step in
--- that month. Stage steps: distinct deals whose first entry into the stage (recorded or inferred, D1) falls in the
--- month. Call steps 2.1 and 3.1: distinct deal ids with a done call of that type due in the month (A2: these ids are
--- not the funnel deals). The report runs from the first to the last month with any step in the data; months
--- without deals show 0. Step 1 is dated like every other stage: the first entry into stage 1.
+-- One row per month and funnel step (FUNNEL_MONTH in the logical model), by cohort: month is the month the deals were
+-- created in, as in Pipedrive's deal conversion report. Stage steps: distinct deals created in the month that
+-- reached the stage at any time (recorded or inferred, D1), so a row reads as the conversion of that month's deals
+-- and no step exceeds the one before. Call steps 2.1 and 3.1: their deal ids are not in the deal history (A2) and
+-- have no creation date, so they stay counted by due month: distinct deal ids with a done call of that type due in
+-- the month. The report runs from the first to the last month with any step in the data; months without deals show 0.
 
--- the 11 funnel steps, with the stage of each stage step
+-- the 11 funnel steps, with the stage of each stage step and the position of each step in the funnel
 with steps as (
     select
         funnel_step,
         kpi_name,
-        stage_id
+        stage_id,
+        sort_order
     from {{ ref('dim_funnel_step') }}
 ),
 
--- stage steps: the month each funnel deal first reached each stage (DUP-6 already excluded upstream)
+-- stage steps: every stage each funnel deal reached, in the month the deal was created (DUP-6 already excluded upstream)
 stage_entries as (
     select
-        deal_id,
-        stage_id,
-        date_trunc('month', entered_at)::date as month
-    from {{ ref('int_pipedrive__deal_stage_entries_backfilled') }}
+        e.deal_id,
+        e.stage_id,
+        c.cohort_month as month
+    from {{ ref('int_pipedrive__deal_stage_entries_backfilled') }} e
+    inner join {{ ref('int_pipedrive__deal_cohorts') }} c
+        on c.deal_id = e.deal_id
 ),
 
 -- deals per stage step and month
@@ -36,7 +40,7 @@ stage_counts as (
         e.month
 ),
 
--- call steps: the held calls with the month they were due
+-- call steps: the held calls with the month they were due (no creation date for these deal ids, A2)
 calls as (
     select
         funnel_step,
@@ -97,6 +101,7 @@ select
     m.month,
     s.kpi_name,
     s.funnel_step,
+    cast(s.sort_order as integer) as sort_order,  -- funnel order for charts: 1, 2, 2.1, 3, 3.1, 4 to 9
     cast(coalesce(c.deals_count, 0) as integer) as deals_count
 from months m
 cross join steps s

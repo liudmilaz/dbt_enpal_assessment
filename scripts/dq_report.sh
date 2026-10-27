@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Data quality run and Elementary report on localhost (vault/project/elementary_rollout.md).
+# Data quality run and Elementary report on localhost.
 # Runs every test (selector dq_report), the known data quality issues included: they fail by design and the report
 # lists their affected raw rows (var test_sample_row_count). Overview: the dashboard; per issue: its test result page.
 # Then builds the data quality dashboard (scripts/dq_dashboard.py): one tab per raw table, a chart per tab and the

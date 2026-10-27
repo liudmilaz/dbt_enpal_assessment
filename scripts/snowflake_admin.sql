@@ -1,4 +1,4 @@
--- One-time admin setup of the Snowflake account (vault/project/snowflake_test_env_plan.md).
+-- One-time admin setup of the Snowflake account.
 --   ENPAL_RAW.PIPEDRIVE       the six CSVs, loaded once by SYSADMIN (scripts/snowflake_load.sql); dbt can only read it
 --   ENPAL_TEST                dbt target test (default): zero-copy clones in SRC (macros/refresh_src.sql) + layer schemas
 --   ENPAL_ANALYTICS_PROD      dbt target prod: built from main only, reads ENPAL_RAW directly

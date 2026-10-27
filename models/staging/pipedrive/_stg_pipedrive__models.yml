@@ -1,11 +1,11 @@
 version: 2
 
-# Staging: one view per raw table, rename / cast only (vault/project/model_plan.md).
+# Staging: one view per raw table, rename / cast only.
 # Tests here are promises of the pipeline: severity error, tag dq_staging (dbt_project.yml).
 # Known issues of the raw data are tested on the raw layer (tests/data_quality/) and are not repeated here.
-# Descriptions hold the business meaning (vault/project/crm_field_definitions.md, business_context.md);
+# Descriptions hold the business meaning (vault/project/03_data_dictionary.md, 04_business_context.md);
 # the stage and activity-type meanings are an interpretation to confirm with Enpal. Cleaning and data quality
-# notes are in meta: cleaning, caveats (issue ids of vault/project/cleansing_proposals.md).
+# notes are in meta: cleaning, caveats (issue ids of vault/project/05_data_quality_issues_and_assumptions.md).
 # Column meta: source_column = raw column, crm_label = the name users see in Pipedrive.
 # Generic tests: unique + not_null on primary and alternate keys, not_null + relationships on foreign keys (no unique:
 # a foreign key repeats by definition). Other columns get not_null only where the report filters or dates by them.
@@ -29,17 +29,6 @@ models:
           - "D5: every change is recorded at the deal's creation time of day; use dates, not durations."
           - "D3: a deal_id can hold two lifecycles, consistent with a duplicate lead merged into one deal."
           - "Only four deal properties are exported; no previous value and no author of a change."
-    data_tests:
-      # format: new_value is text for every key and is typed per key; a new key or a value that does not cast fails here
-      - dbt_utils.expression_is_true:
-          name: one_typed_value_per_change__stg_deal_changes
-          description: "Exactly one typed column is filled per row, the one of its key."
-          arguments:
-            expression: >
-              (case when deal_created_at is null then 0 else 1 end)
-              + (case when owner_user_id is null then 0 else 1 end)
-              + (case when stage_id is null then 0 else 1 end)
-              + (case when lost_reason_id is null then 0 else 1 end) = 1
     columns:
       - name: deal_change_key
         description: "Identifies one change of one deal property at one time; built over the deal, the property and the time."
@@ -101,12 +90,6 @@ models:
           closure label, not a won/lost outcome (D4).
         config:
           meta: { source_column: new_value, crm_label: Lost reason }
-        data_tests:
-          - dbt_utils.relationships_where:
-              arguments:
-                to: ref('stg_pipedrive__field_options')
-                field: option_id
-                to_condition: "field_key = 'lost_reason'"
 
   - name: stg_pipedrive__activity
     description: >

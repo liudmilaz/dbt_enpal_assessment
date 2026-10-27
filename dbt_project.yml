@@ -45,7 +45,7 @@ models:
   elementary:
     +schema: elementary
 
-# Data tests per layer (vault/project/elementary_rollout.md).
+# Data tests per layer.
 # Raw layer: key tests warn and carry the tag dq_raw; the known data quality issues (tag dq_known_issue) set
 # severity error in their own config, so the Elementary report shows them as failures. The default selector
 # (selectors.yml) leaves them out of dbt build; scripts/dq_report.sh runs them.
