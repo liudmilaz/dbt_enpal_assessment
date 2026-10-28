@@ -1,65 +1,33 @@
 -- One row per month and funnel step (FUNNEL_MONTH in the logical model), by cohort: month is the month the deals were
--- created in, as in Pipedrive's deal conversion report. Stage and call steps are first put together per deal, then
--- every step is counted in the cohort month of its deal: distinct deals of that month that reached the step at any
--- time (stages recorded or inferred, D1; calls held, A4), so a row reads as the conversion of that month's deals.
+-- created in, as in Pipedrive's deal conversion report. The events come from int_pipedrive__funnel_events, where stage
+-- entries and calls are put together at the event grain and enriched with the cohort month: every step counts the
+-- distinct deals of that month that reached it at any time (stages recorded or inferred, D1; calls held, A4), so a
+-- row reads as the conversion of that month's deals.
 -- The calls' deal ids are almost never in the deal history (A2): their cohort is the month of their first activity.
 -- The report runs from the first to the last month with any step in the data; months without deals show 0.
 
--- the 11 funnel steps, with the stage of each stage step and the position of each step in the funnel
+-- the 11 funnel steps, with the position of each step in the funnel
 with steps as (
     select
         funnel_step,
         kpi_name,
-        stage_id,
         sort_order
     from {{ ref('dim_funnel_step') }}
 ),
 
--- stage steps: every stage each funnel deal reached, recorded or inferred (DUP-6 already excluded upstream)
-stage_events as (
-    select
-        s.funnel_step,
-        e.deal_id
-    from {{ ref('int_pipedrive__deal_stage_entries_backfilled') }} e
-    inner join steps s
-        on s.stage_id = e.stage_id
-),
-
--- call steps: the deal ids with a held call of each type
-call_events as (
+-- the events the report counts, in the cohort month of their deal: every stage entry (recorded or inferred, D1) and
+-- the held calls only
+cohort_events as (
     select
         funnel_step,
-        deal_id
-    from {{ ref('int_pipedrive__sales_calls') }}
+        deal_id,
+        cohort_month as month
+    from {{ ref('int_pipedrive__funnel_events') }}
     -- held calls only: marked done. Every call in this export was due before the export ended, but only about half
     -- are marked done (A4). If Enpal confirms that reps hold calls without marking them done, add
     -- "or is_due_before_export_end" (steps 2.1 and 3.1 would about double).
-    where is_done
-),
-
--- deals and calls together: every step each deal reached
-funnel_events as (
-    select
-        funnel_step,
-        deal_id
-    from stage_events
-    union all
-    select
-        funnel_step,
-        deal_id
-    from call_events
-),
-
--- every step in the cohort month of its deal: the creation month, or the first activity's month for the calls'
--- deal ids that the deal history does not know (A2)
-cohort_events as (
-    select
-        f.funnel_step,
-        f.deal_id,
-        c.cohort_month as month
-    from funnel_events f
-    inner join {{ ref('int_pipedrive__deal_cohorts') }} c
-        on c.deal_id = f.deal_id
+    where event_source = 'stage_entry'
+        or is_done
 ),
 
 -- deals per step and cohort month

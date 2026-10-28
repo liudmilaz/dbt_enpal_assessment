@@ -30,6 +30,53 @@ models:
         description: "First day of the cohort's month: the month the report counts all steps of the deal in."
         data_tests: [not_null]
 
+  - name: int_pipedrive__funnel_events
+    description: >
+      One row per funnel event at the lowest level: every stage a funnel deal reached (recorded or inferred) and every
+      Sales Call 1 or 2 (done or not), put together with union all and enriched with the deal's cohort. The report
+      counts from it; the counting rules (for example done calls only) stay in the report.
+    config:
+      meta: { grain: "event_source, deal_id, funnel_step, activity_id", primary_key: [funnel_event_key], logical_entity: FUNNEL_EVENT }
+    columns:
+      - name: funnel_event_key
+        description: "Surrogate key over event_source, deal_id, funnel_step and activity_id (null for stage entries)."
+        data_tests: [unique, not_null]
+      - name: event_source
+        description: "stage_entry (a stage the deal reached) or sales_call (an activity of type Sales Call 1 or 2)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments: { values: ['stage_entry', 'sales_call'] }
+      - name: funnel_step
+        description: "The funnel step of the event: '1' to '9' for stage entries, '2.1' or '3.1' for calls."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: { to: ref('int_pipedrive__funnel_steps'), field: funnel_step }
+      - name: deal_id
+        description: "The deal: a funnel deal for stage entries; for calls the activity's own deal id, rarely in the deal history (A2)."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: { to: ref('int_pipedrive__deal_cohorts'), field: deal_id }
+      - name: activity_id
+        description: "The call's activity id; null for stage entries."
+      - name: event_at
+        description: "When the event happened: the stage entry (recorded or inferred), or the call's due time (planned, no completion time in the export). Only the date is reliable (D5)."
+        data_tests: [not_null]
+      - name: is_inferred
+        description: "Stage entries only: true when the stage was skipped in the data and is counted as reached (D1, D2); null for calls."
+      - name: is_done
+        description: "Calls only: whether the rep marked the call done; null for stage entries."
+      - name: is_due_before_export_end
+        description: "Calls only: whether the call was due before the export ended (A4); null for stage entries."
+      - name: cohort_month
+        description: "The month the report counts the event in: the deal's creation month, or for the calls' deal ids the month of their first activity."
+        data_tests: [not_null]
+      - name: cohort_source
+        description: "Where the cohort comes from: deal_created or first_activity."
+        data_tests: [not_null]
+
   - name: int_pipedrive__deal_stage_entries
     description: "One row per funnel deal and recorded stage, dated by the first entry: a re-entry of a stage already entered counts once. Duplicate Entry deals (DUP-6) are already left out in staging."
     config:
