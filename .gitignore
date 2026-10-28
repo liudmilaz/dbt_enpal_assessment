@@ -1,0 +1,20 @@
+# dbt
+target/
+dbt_packages/
+logs/
+# local connection settings and secrets
+.env
+# python
+.venv/
+__pycache__/
+# editor, local agent config, OS
+.vscode/
+.claude/
+.DS_Store
+
+# analyses: kept local until the owner has reviewed them; added back before the final submission
+analyses/*
+!analyses/.gitkeep
+
+# Elementary report output
+edr_target/

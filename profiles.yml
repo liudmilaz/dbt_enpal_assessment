@@ -1,12 +1,32 @@
+# Snowflake only. Account, user and key path come from the environment (scripts/snowflake_env.example), not from this public file.
+# Default target test = ENPAL_TEST, a zero-copy clone of the raw data (macros/refresh_src.sql): a plain dbt command never reaches prod.
+# prod = ENPAL_ANALYTICS_PROD, built from main only.
 enpal_assessment_project:
+  target: test
   outputs:
-    dev:
-      dbname: postgres
-      host: localhost
-      pass: admin
-      port: 5432
-      schema: public
-      threads: 1
-      type: postgres
-      user: admin
-  target: dev
+    test: &snowflake
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      authenticator: snowflake_jwt
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      role: ENPAL_DBT_ROLE
+      warehouse: ENPAL_WH
+      database: ENPAL_TEST
+      schema: UNASSIGNED  # every model has a layer schema (macros/generate_schema_name.sql)
+      threads: 4
+    prod:
+      <<: *snowflake
+      database: ENPAL_ANALYTICS_PROD
+
+# Elementary CLI (edr): reads the Elementary tables of the same environment
+elementary:
+  target: test
+  outputs:
+    test:
+      <<: *snowflake
+      schema: ELEMENTARY
+    prod:
+      <<: *snowflake
+      database: ENPAL_ANALYTICS_PROD
+      schema: ELEMENTARY

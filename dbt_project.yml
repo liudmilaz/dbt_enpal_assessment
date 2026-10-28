@@ -22,15 +22,58 @@ clean-targets:         # directories to be removed by `dbt clean`
   - "target"
   - "dbt_packages"
 
+# Elementary's test materialization stores the failed rows of each test (the report's result samples);
+# dbt only uses a package's override of the built-in test materialization with this flag off
+flags:
+  require_explicit_package_overrides_for_builtin_materializations: false
 
-# Configuring models
-# Full documentation: https://docs.getdbt.com/docs/configuring-models
 
-# In this example config, we tell dbt to build all models in the example/
-# directory as views. These settings can be overridden in the individual model
-# files using the `{{ config(...) }}` macro.
+# One schema per layer, the same names in test (ENPAL_TEST) and prod (ENPAL_ANALYTICS_PROD):
+# see macros/generate_schema_name.sql. Staging and intermediate are views, marts are tables.
 models:
   enpal_assessment_project:
-    # Config indicated by + and applies to all files under models/example/
-    +schema: pipedrive_analytics
-    +materialized: table
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+    marts:
+      +schema: marts
+      +materialized: table
+  # Elementary's result tables in their own schema (ELEMENTARY)
+  elementary:
+    +schema: elementary
+
+# Data tests per layer.
+# Raw layer: key tests warn and carry the tag dq_raw; the known data quality issues (tag dq_known_issue) set
+# severity error in their own config, so the Elementary report shows them as failures. The default selector
+# (selectors.yml) leaves them out of dbt build; scripts/dq_report.sh runs them.
+# Staging, intermediate, marts: the tests on the cleansed data are promises of the pipeline, at error.
+data_tests:
+  enpal_assessment_project:
+    sources:
+      +severity: warn
+      +tags: [dq_raw]
+    data_quality:
+      +severity: warn
+      +tags: [dq_raw]
+    staging:
+      +severity: error
+      +tags: [dq_staging]
+    intermediate:
+      +severity: error
+      +tags: [dq_intermediate]
+    marts:
+      +severity: error
+      +tags: [dq_report]
+
+# Where the raw tables are read from, per target (models/staging/pipedrive/sources/_pipedrive__sources.yml):
+#   test -> ENPAL_TEST.SRC, zero-copy clones made by `dbt run-operation refresh_src`
+#   prod -> ENPAL_RAW.PIPEDRIVE, read directly
+vars:
+  raw_location:
+    test: { database: ENPAL_TEST, schema: SRC }
+    prod: { database: ENPAL_RAW, schema: PIPEDRIVE }
+  # Elementary: failed rows shown per test in the report; high enough to list every affected raw row
+  test_sample_row_count: 5000

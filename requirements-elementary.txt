@@ -1,0 +1,2 @@
+# Elementary CLI (edr) for the data quality report; own venv, so it cannot change the project's dbt version
+elementary-data[snowflake]==0.26.1

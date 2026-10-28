@@ -1,0 +1,369 @@
+version: 2
+
+# Raw layer: the six raw Pipedrive tables, with two kinds of tests only.
+#   1. Keys: every primary key unique + not_null (a composite key unique_combination_of_columns + not_null on each part),
+#      every foreign key not_null + relationships, never unique. Tag dq_check, severity warn: they pass on this export.
+#      Keys inside deal_changes.new_value are tested here with a where on changed_field_key; the lost reason, whose options
+#      are a JSON array, in tests/data_quality/fk_lost_reason_in_field_options.sql.
+#      Allowed values: the stage ids and call type names the report reads (accepted_values below); the stage labels,
+#      a JSON array in fields, in tests/data_quality/accepted_stage_labels__fields.sql.
+#   2. Known issues found in the exploratory analysis: singular tests in tests/data_quality/, named by issue id
+#      (vault/project/05_data_quality_issues_and_assumptions.md), tag dq_known_issue, severity error, one test per issue. Each returns the
+#      affected raw rows at the table's own grain, so the Elementary report lists them (var test_sample_row_count).
+# The default selector (selectors.yml) leaves the known issues out of dbt build, so they never block the pipeline;
+# scripts/dq_report.sh runs every test and builds the Elementary report.
+# Not implemented yet, to add with the business process: source freshness (loaded_at_field, warn_after / error_after)
+# once the export is loaded on a schedule, Elementary anomaly monitors (volume, freshness, dimension, schema) once
+# there is load history to train on, and custom tests agreed with sales ops and the CRM admin.
+# Test text has two parts: Found (what the analysis saw, and where) and Handled (how the pipeline cleanses or transforms it). The size of an issue is the test result, never part of the metadata.
+# Keys and relationships from the analysis (vault/project/06_logical_model.md) are in meta: table_kind, grain, primary_key,
+# foreign_keys on each table, key and references on each key column. Column descriptions: vault/project/03_data_dictionary.md.
+
+sources:
+  - name: pipedrive
+    description: "Pipedrive CRM export of Enpal's sales pipeline: six tables loaded from CSV (raw_data/) into ENPAL_RAW.PIPEDRIVE. No deals table: deals are derived from deal_changes."
+    database: "{{ var('raw_location')[target.name].database }}"  # test: ENPAL_TEST (clones), prod: ENPAL_RAW (vars in dbt_project.yml)
+    schema: "{{ var('raw_location')[target.name].schema }}"      # test: SRC, prod: PIPEDRIVE
+    tables:
+      - name: deal_changes
+        description: >
+          Event log of deal field changes, the only source of deals: one row per change of one field of one deal.
+          Four field keys: add_time (creation), user_id (owner), stage_id (stage entered) and lost_reason.
+          Known patterns: changes fall on the deal's creation time of day (D5) and stages are often skipped (D1).
+        config:
+          meta:
+            table_kind: fact
+            grain: "deal_id, changed_field_key, change_time"
+            primary_key: [deal_id, changed_field_key, change_time]
+            foreign_keys:
+              - "changed_field_key -> fields.field_key"
+              - "new_value (stage_id) -> stages.stage_id"
+              - "new_value (user_id) -> users.id"
+              - "new_value (lost_reason) -> fields.field_value_options.id of lost_reason"
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              name: pk_grain__deal_changes
+              description: "Found (EDA 01 §2): no key is declared; (deal_id, changed_field_key, change_time) is unique. Handled: staging hashes the three columns into deal_change_key, tested unique + not_null at error."
+              arguments: { combination_of_columns: [deal_id, changed_field_key, change_time] }
+              config:
+                tags: [dq_check]
+                meta: { owner: data_team, quality_dimension: uniqueness }
+        columns:
+          - name: deal_id
+            description: "The deal the change belongs to; there is no deals table. A deal_id can carry two lifecycles (D3), each with its own creation, owners, stage path and lost reason."
+            data_type: NUMBER
+            config:
+              meta: { key: primary }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+          - name: change_time
+            description: "When the change happened (changelog time). Known pattern D5: changes fall on the deal's creation clock time, so the time between stages says nothing about sales speed."
+            data_type: TIMESTAMP_NTZ
+            config:
+              meta: { key: primary }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+          - name: changed_field_key
+            description: "Key of the field that changed; decides how new_value is typed (format tested in staging). Every key is a row of fields."
+            data_type: TEXT
+            config:
+              meta: { key: primary, references: fields.field_key }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - relationships:
+                  name: fk_field_key_in_fields__deal_changes
+                  description: "Every changed_field_key is a field of fields."
+                  arguments:
+                    to: source('pipedrive', 'fields')
+                    field: field_key
+                  config:
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: consistency }
+          - name: new_value
+            description: >
+              Value after the change, as text whatever the key (typed per key in staging): a timestamp equal to change_time for add_time,
+              a user id for user_id, a stage id for stage_id, a lost-reason option id for lost_reason.
+              No previous value and no author in the export. Filter on the key before casting.
+            data_type: TEXT
+            config:
+              meta: { key: foreign, references: "stages.stage_id (stage_id), users.id (user_id), fields.field_value_options (lost_reason)" }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - relationships:
+                  name: fk_stage_in_stages__deal_changes
+                  description: "Every stage a deal moves into is a stage of stages."
+                  arguments:
+                    to: source('pipedrive', 'stages')
+                    field: stage_id
+                  config:
+                    where: "changed_field_key = 'stage_id'"
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: consistency }
+              # allowed values: the report counts stages 1 to 9 (funnel steps 1 to 9)
+              - accepted_values:
+                  name: accepted_stage_ids__deal_changes
+                  description: "Every stage a deal moves into is one of the report's stages 1 to 9."
+                  arguments: { values: ['1', '2', '3', '4', '5', '6', '7', '8', '9'] }
+                  config:
+                    where: "changed_field_key = 'stage_id'"
+                    severity: error
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: validity }
+              - relationships:
+                  name: fk_owner_in_users__deal_changes
+                  description: "Every owner a deal is assigned to is a user of users."
+                  arguments:
+                    to: source('pipedrive', 'users')
+                    field: id
+                  config:
+                    where: "changed_field_key = 'user_id'"
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: consistency }
+
+      - name: activity
+        description: >
+          One scheduled activity (call) of a sales rep; feeds steps 2.1 (Sales Call 1) and 3.1 (Sales Call 2).
+          Known patterns: activity.deal_id rarely matches a deal in deal_changes (A2), so calls are counted by due month,
+          not per funnel deal; done is set on only part of the past activities (A4); the export can end earlier than deal_changes (X1).
+        config:
+          meta:
+            table_kind: fact
+            grain: "activity_id (decided 2026-10-23; ids can repeat, A1)"
+            primary_key: [activity_id]
+            foreign_keys:
+              - "type -> activity_types.type"
+              - "assigned_to_user -> users.id"
+              - "deal_id -> deal_changes.deal_id (intended; rarely matches, A2)"
+        columns:
+          - name: activity_id
+            description: "Primary key (decided 2026-10-23). An id can be shared by unrelated activities (A1, tests/data_quality/a1_repeated_activity_id.sql); staging keeps the latest due_to per id."
+            data_type: NUMBER
+            config:
+              meta: { key: primary, issue: A1 }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+          - name: type
+            description: "The activity type's key string (activity_types.type, not its id): meeting is Sales Call 1 (step 2.1), sc_2 is Sales Call 2 (step 3.1)."
+            data_type: TEXT
+            config:
+              meta: { key: foreign, references: activity_types.type }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - relationships:
+                  name: fk_type_in_activity_types__activity
+                  description: "Every activity type is a type of activity_types."
+                  arguments:
+                    to: source('pipedrive', 'activity_types')
+                    field: type
+                  config:
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: consistency }
+          - name: assigned_to_user
+            description: "The user who owns the activity (owner_id in the Pipedrive API)."
+            data_type: NUMBER
+            config:
+              meta: { key: foreign, references: users.id }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - relationships:
+                  name: fk_assigned_user_in_users__activity
+                  description: "Every assignee is a user of users."
+                  arguments:
+                    to: source('pipedrive', 'users')
+                    field: id
+                  config:
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: consistency }
+          - name: deal_id
+            description: "The deal the activity is planned against. Intended foreign key to deal_changes, but it rarely matches (A2, tests/data_quality/a2_activity_deal_not_in_deal_changes.sql)."
+            data_type: NUMBER
+            config:
+              meta: { key: foreign, references: deal_changes.deal_id, issue: A2 }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+          - name: done
+            description: "Whether the activity was marked done. Known pattern A4: part of the past activities is never marked done; counting done calls only lowers steps 2.1 and 3.1."
+            data_type: BOOLEAN
+            config:
+              meta: { issue: A4 }
+            data_tests:
+              # not a key: done filters steps 2.1 and 3.1
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+          - name: due_to
+            description: "Planned date and time (the API's due_date and due_time merged). The month of the call in the report."
+            data_type: TIMESTAMP_NTZ
+            data_tests:
+              # not a key: due_to dates the call in the report
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+
+      - name: activity_types
+        description: >
+          Dictionary of the activity types. Activities reference a type by its key string (type), which is 1 to 1 with id.
+          A deactivated type keeps its past activities (T1).
+        config:
+          meta:
+            table_kind: dictionary
+            grain: "one row per activity type"
+            primary_key: [id]
+            natural_key: [type]
+        columns:
+          - name: id
+            description: "Surrogate id of the type; nothing in the export references it."
+            data_type: NUMBER
+            config:
+              meta: { key: primary }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - unique:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+          - name: name
+            description: "Display name, for example Sales Call 1. The task's step names 2.1 and 3.1 are the names of Sales Call 1 and Sales Call 2."
+            data_type: TEXT
+            data_tests:
+              # allowed values: the two call types of the report; int_pipedrive__funnel_steps maps them by name
+              - accepted_values:
+                  name: accepted_call_names__activity_types
+                  description: "The two activity types the report counts (steps 2.1 and 3.1) are named Sales Call 1 and Sales Call 2."
+                  arguments: { values: ['Sales Call 1', 'Sales Call 2'] }
+                  config:
+                    where: "type in ('meeting', 'sc_2')"
+                    severity: error
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: validity }
+          - name: active
+            description: "'Yes' / 'No' as text: whether the type can be chosen for new activities. Staging casts it to is_active."
+            data_type: TEXT
+            data_tests:
+              # format: staging reads only 'Yes' as active; any other spelling would turn a type inactive without notice
+              - accepted_values:
+                  name: active_flag_format__activity_types
+                  description: "The flag is the text 'Yes' or 'No'."
+                  arguments: { values: ['Yes', 'No'] }
+                  config:
+                    severity: error
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: validity }
+          - name: type
+            description: "Key string referenced by activity.type; generated from the name at creation and never changed, so it is the join key (alternate key)."
+            data_type: TEXT
+            config:
+              meta: { key: natural }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - unique:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+
+      - name: stages
+        description: >
+          Dictionary of the pipeline stages, steps 1 to 9 of the funnel. The funnel order is the order of stage_id
+          (the export has no order_nr). A name can be spelled differently from its label in fields (S1); the report uses the field labels.
+        config:
+          meta:
+            table_kind: dictionary
+            grain: "one row per stage"
+            primary_key: [stage_id]
+        columns:
+          - name: stage_id
+            description: "Stage id = funnel step; referenced as text by deal_changes.new_value where the key is stage_id."
+            data_type: NUMBER
+            config:
+              meta: { key: primary }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - unique:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              # allowed values: the report's stages 1 to 9
+              - accepted_values:
+                  name: accepted_stage_ids__stages
+                  description: "Every stage is one of the report's stages 1 to 9."
+                  arguments: { values: [1, 2, 3, 4, 5, 6, 7, 8, 9] }
+                  config:
+                    severity: error
+                    tags: [dq_check]
+                    meta: { owner: data_team, quality_dimension: validity }
+          - name: stage_name
+            description: "Stage name as set by the CRM admin; can differ in spelling from the stage label in fields (S1)."
+            data_type: TEXT
+
+      - name: fields
+        description: >
+          Metadata of the deal fields that appear in deal_changes. field_value_options holds the id-label pairs of the
+          single-option fields: the stage labels and the lost reasons.
+        config:
+          meta:
+            table_kind: dictionary
+            grain: "one row per deal field"
+            primary_key: [id]
+            natural_key: [field_key]
+        columns:
+          - name: id
+            description: "The field's id in the export; nothing references it."
+            data_type: NUMBER
+            config:
+              meta: { key: primary }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - unique:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+          - name: field_key
+            description: "The field's key as used in deal_changes.changed_field_key: add_time, user_id, stage_id, lost_reason (alternate key)."
+            data_type: TEXT
+            config:
+              meta: { key: natural }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - unique:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+          - name: name
+            description: "Display name, for example 'Deal created' for add_time and 'Owner' for user_id."
+            data_type: TEXT
+          - name: field_value_options
+            description: "JSON array of {id, label} for single-option fields (stage_id, lost_reason), empty for the others. Ids are strings in the JSON; unpack with lateral flatten."
+            data_type: VARIANT
+
+      - name: users
+        description: >
+          Current state of the CRM users (no history): deal owners and activity owners. Known pattern U2: many owners
+          with very few deals each, not the shape of a real sales team, so no per-rep KPIs. An email can be shared (U1).
+        config:
+          meta:
+            table_kind: dictionary
+            grain: "one row per user (current state)"
+            primary_key: [id]
+        columns:
+          - name: id
+            description: "User id; referenced by activity.assigned_to_user and by deal_changes.new_value where the key is user_id."
+            data_type: NUMBER
+            config:
+              meta: { key: primary }
+            data_tests:
+              - not_null:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+              - unique:
+                  config: { tags: [dq_check], meta: { owner: data_team } }
+          - name: name
+            description: "Full name; names are shared by different users, so it does not identify a person."
+            data_type: TEXT
+          - name: email
+            description: "Email; can be shared by two users with different names (U1, tests/data_quality/u1_shared_email__users.sql). Never join on email."
+            data_type: TEXT
+            config:
+              meta: { issue: U1 }
+          - name: modified
+            description: "Last change of the user record; an edit time, not an export cut-off."
+            data_type: TIMESTAMP_NTZ
