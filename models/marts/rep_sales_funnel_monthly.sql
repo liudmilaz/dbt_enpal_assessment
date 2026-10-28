@@ -1,9 +1,9 @@
 -- One row per month and funnel step (FUNNEL_MONTH in the logical model), by cohort: month is the month the deals were
--- created in, as in Pipedrive's deal conversion report. Stage steps: distinct deals created in the month that
--- reached the stage at any time (recorded or inferred, D1), so a row reads as the conversion of that month's deals
--- and no step exceeds the one before. Call steps 2.1 and 3.1: their deal ids are not in the deal history (A2) and
--- have no creation date, so they stay counted by due month: distinct deal ids with a done call of that type due in
--- the month. The report runs from the first to the last month with any step in the data; months without deals show 0.
+-- created in, as in Pipedrive's deal conversion report. Stage and call steps are first put together per deal, then
+-- every step is counted in the cohort month of its deal: distinct deals of that month that reached the step at any
+-- time (stages recorded or inferred, D1; calls held, A4), so a row reads as the conversion of that month's deals.
+-- The calls' deal ids are almost never in the deal history (A2): their cohort is the month of their first activity.
+-- The report runs from the first to the last month with any step in the data; months without deals show 0.
 
 -- the 11 funnel steps, with the stage of each stage step and the position of each step in the funnel
 with steps as (
@@ -15,37 +15,21 @@ with steps as (
     from {{ ref('dim_funnel_step') }}
 ),
 
--- stage steps: every stage each funnel deal reached, in the month the deal was created (DUP-6 already excluded upstream)
-stage_entries as (
-    select
-        e.deal_id,
-        e.stage_id,
-        c.cohort_month as month
-    from {{ ref('int_pipedrive__deal_stage_entries_backfilled') }} e
-    inner join {{ ref('int_pipedrive__deal_cohorts') }} c
-        on c.deal_id = e.deal_id
-),
-
--- deals per stage step and month
-stage_counts as (
+-- stage steps: every stage each funnel deal reached, recorded or inferred (DUP-6 already excluded upstream)
+stage_events as (
     select
         s.funnel_step,
-        e.month,
-        count(distinct e.deal_id) as deals_count
-    from stage_entries e
+        e.deal_id
+    from {{ ref('int_pipedrive__deal_stage_entries_backfilled') }} e
     inner join steps s
         on s.stage_id = e.stage_id
-    group by
-        s.funnel_step,
-        e.month
 ),
 
--- call steps: the held calls with the month they were due (no creation date for these deal ids, A2)
-calls as (
+-- call steps: the deal ids with a held call of each type
+call_events as (
     select
         funnel_step,
-        deal_id,
-        date_trunc('month', due_at)::date as month
+        deal_id
     from {{ ref('int_pipedrive__sales_calls') }}
     -- held calls only: marked done. Every call in this export was due before the export ended, but only about half
     -- are marked done (A4). If Enpal confirms that reps hold calls without marking them done, add
@@ -53,31 +37,41 @@ calls as (
     where is_done
 ),
 
--- deal ids per call step and month
-call_counts as (
+-- deals and calls together: every step each deal reached
+funnel_events as (
     select
         funnel_step,
-        month,
-        count(distinct deal_id) as deals_count
-    from calls
-    group by
+        deal_id
+    from stage_events
+    union all
+    select
         funnel_step,
-        month
+        deal_id
+    from call_events
 ),
 
--- stage and call steps together
+-- every step in the cohort month of its deal: the creation month, or the first activity's month for the calls'
+-- deal ids that the deal history does not know (A2)
+cohort_events as (
+    select
+        f.funnel_step,
+        f.deal_id,
+        c.cohort_month as month
+    from funnel_events f
+    inner join {{ ref('int_pipedrive__deal_cohorts') }} c
+        on c.deal_id = f.deal_id
+),
+
+-- deals per step and cohort month
 step_counts as (
     select
         funnel_step,
         month,
-        deals_count
-    from stage_counts
-    union all
-    select
+        count(distinct deal_id) as deals_count
+    from cohort_events
+    group by
         funnel_step,
-        month,
-        deals_count
-    from call_counts
+        month
 ),
 
 -- the report window: the first and the last month with any step in the data

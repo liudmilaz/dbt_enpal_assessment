@@ -71,10 +71,11 @@ models:
       in the data, zero-filled. month is the month the deals were created in, as in Pipedrive's deal conversion report
       (following the task's step 2, research of the Pipedrive CRM terms). Stage steps count distinct deals (DUP-6 excluded in
       staging) created in the month that reached the stage at any time (recorded or inferred), so each row is the
-      conversion of one month's deals, no step exceeds the one before, and recent months still grow while their
-      deals progress. Steps 2.1 and 3.1 cannot be put in a cohort: their deal ids are not the funnel deals and have
-      no creation date (A2), so they count distinct deal ids with a done call due in the month. The window ends with the last month with data (X1). Stage steps add up across months (one cohort per deal); call steps do
-      not (a deal with calls in two months counts in both).
+      conversion of one month's deals, no stage step exceeds the one before, and recent months still grow while their
+      deals progress. Stage and call steps are put together per deal first and then counted in the cohort of the
+      deal. Steps 2.1 and 3.1 count distinct deal ids with a done call; their deal ids are almost never in the deal
+      history and have no creation date (A2), so their cohort is the month of their first activity. The window ends
+      with the last month with data (X1). Every step adds up across months: each deal has one cohort.
     config:
       contract: { enforced: true }
       meta:

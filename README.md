@@ -13,7 +13,7 @@ The assignment ships a local Postgres in Docker. Enpal agreed that this solution
 | Step | Counted as | Total deals in the window |
 |---|---|---|
 | 1 to 9 (stages) | distinct deals **created in the month** that reached the stage at any time; a skipped stage counts as reached (`is_inferred`) | 1,618 / 1,614 / 1,582 / 1,512 / 1,367 / 1,150 / 877 / 586 / 274 |
-| 2.1 Sales Call 1, 3.1 Sales Call 2 | distinct deal ids with a **done** call of that type **due in the month**: these deal ids are not in the deal history (A2) and have no creation date, so they cannot be counted by cohort | 566 / 558 |
+| 2.1 Sales Call 1, 3.1 Sales Call 2 | distinct deal ids with a **done** call of that type, in the deal's **cohort month**: these deal ids are almost never in the deal history (A2) and have no creation date, so their cohort is the month of their first activity | 566 / 558 |
 
 ## Data flow
 
@@ -49,7 +49,7 @@ ENPAL_ANALYTICS_PROD       same layers, target `prod`, built from main only, rea
 | Topic | Choice | Why / effect |
 |---|---|---|
 | Skipped stages (84% of deals) | counted as reached, flagged `is_inferred`; for recorded entries only use `int_pipedrive__deal_stage_entries` | a deal in Negotiation has passed Qualified Lead; recorded-only would roughly halve the middle steps |
-| Month of the report | the deal's creation month (cohort) for every stage step; the due month for the call steps | follows the Pipedrive documentation, as the task suggests: the deal conversion report filters on the deal creation date. The call steps have no creation date (A2). To confirm with the KPI owner |
+| Month of the report | the deal's cohort month for every step: stage and call steps are put together per deal first, then counted in the month the deal was created (for the calls' deal ids, the month of their first activity) | follows the Pipedrive documentation, as the task suggests: the deal conversion report filters on the deal creation date. The calls' deal ids have no creation date (A2). To confirm with the KPI owner |
 | Win / loss conversion | not built | Pipedrive's second conversion mode needs the deal status (won, lost); the export has no status, won time or lost time, and every deal carries a lost reason (D4), also the deals that reached Renewal/Expansion |
 | Calls 2.1 / 3.1 | done calls only; `is_due_before_export_end` in `int_pipedrive__sales_calls` flags the calls due before the export ended (the last change of the deal history) | a held call is the KPI; only about 50% of every type is marked done, although every call was due before the export ended. Counting those calls too would about double steps 2.1 and 3.1 (to confirm with Enpal) |
 | Calls vs deals | calls counted per month by their own `deal_id` | only 8 of 4,579 activities link to a deal in the history, so they cannot be attached to the funnel deals |

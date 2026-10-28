@@ -6,20 +6,28 @@ version: 2
 models:
   - name: int_pipedrive__deal_cohorts
     description: >
-      One row per funnel deal with its first creation and the month of it (the cohort). The report counts every step
-      a deal reaches in this month, as Pipedrive's deal conversion report does. A deal with two creations (D3) belongs
-      to its first. Duplicate Entry deals (DUP-6) are left out in staging.
+      One row per deal id of the funnel, from the deal history or from the calls, with the month the report counts
+      every step of the deal in (the cohort), as Pipedrive's deal conversion report does. A deal of the history
+      belongs to its first creation (D3: two creations); Duplicate Entry deals (DUP-6) are left out in staging. The
+      calls' deal ids are almost never in the history (A2) and have no creation: they belong to the month of their
+      first activity.
     config:
       meta: { grain: deal_id, primary_key: [deal_id], logical_entity: DEAL }
     columns:
       - name: deal_id
-        description: "The funnel deal."
+        description: "The deal: a deal of the deal history, or a deal id that only the activities know (A2)."
         data_tests: [unique, not_null]
-      - name: deal_created_at
-        description: "First creation time of the deal (add_time). Only the date is reliable (D5)."
+      - name: cohort_at
+        description: "The date the cohort is taken from: the first creation (add_time) for a deal of the history, the first activity's due date otherwise. Only the date is reliable (D5)."
         data_tests: [not_null]
+      - name: cohort_source
+        description: "Where cohort_at comes from: deal_created (deal history) or first_activity (deal id known only from the activities)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments: { values: ['deal_created', 'first_activity'] }
       - name: cohort_month
-        description: "First day of the month the deal was created in: the month the report counts all its steps in."
+        description: "First day of the cohort's month: the month the report counts all steps of the deal in."
         data_tests: [not_null]
 
   - name: int_pipedrive__deal_stage_entries
